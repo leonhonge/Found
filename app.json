@@ -8,7 +8,6 @@
     "scheme": "michiganfound",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "assets/expo.icon",
       "bundleIdentifier": "com.leonhonge.michiganfound"
     },
     "android": {
