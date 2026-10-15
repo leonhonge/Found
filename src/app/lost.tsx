@@ -16,6 +16,11 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+const MAIZE = "#FFCB05";
+const MAIZE_SOFT = "#FFF6CC";
+const BLUE = "#00274C";
+const BLUE_MID = "#1A3E66";
+
 const CATEGORIES = [
   "Water Bottle",
   "Charger",
@@ -106,9 +111,7 @@ export default function LostItemForm() {
     }
   }, [initialCategory, initialDescription]);
 
-  const categoryLabel = category || "Category";
   const dateLabel = useMemo(() => formatDateTime(lostAt), [lostAt]);
-  const locationLabel = location || "Location Lost";
 
   function openDatePicker() {
     if (Platform.OS === "web") {
@@ -168,38 +171,74 @@ export default function LostItemForm() {
           keyboardShouldPersistTaps="handled"
         >
           <Pressable
-            style={styles.whiteCard}
+            accessibilityRole="button"
             onPress={() => setCategoryOpen(true)}
+            style={({ pressed }) => [styles.fieldCard, pressed && styles.fieldCardPressed]}
           >
-            <Text style={styles.cardTitle}>{categoryLabel}</Text>
+            <View style={styles.fieldCopy}>
+              <Text style={styles.fieldLabel}>Category</Text>
+              <Text style={category ? styles.fieldValue : styles.fieldPlaceholder}>
+                {category || "Select a category"}
+              </Text>
+            </View>
+            <SymbolView
+              name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }}
+              tintColor={MAIZE}
+              size={18}
+              fallback={<Text style={styles.chevronFallback}>›</Text>}
+            />
           </Pressable>
 
-          <View style={styles.whiteCard}>
-            <Text style={styles.cardTitle}>Item Description:</Text>
+          <View style={[styles.fieldCard, styles.fieldCardStack]}>
+            <Text style={styles.fieldLabel}>Item description</Text>
+            <TextInput
+              style={styles.descriptionInput}
+              placeholder="Any identifying details: color, stickers, name, brand..."
+              placeholderTextColor="#8A7310"
+              multiline
+              textAlignVertical="top"
+              value={description}
+              onChangeText={setDescription}
+            />
           </View>
-          <TextInput
-            style={styles.descriptionInput}
-            placeholder="please list any identifying details about your item here."
-            placeholderTextColor="#5c4b00"
-            multiline
-            textAlignVertical="top"
-            value={description}
-            onChangeText={setDescription}
-          />
 
-          <Pressable style={styles.whiteCard} onPress={openDatePicker}>
-            <Text style={styles.cardTitle}>Estimated Date Lost</Text>
-            <Text style={styles.cardValue}>{dateLabel}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={openDatePicker}
+            style={({ pressed }) => [styles.fieldCard, pressed && styles.fieldCardPressed]}
+          >
+            <View style={styles.fieldCopy}>
+              <Text style={styles.fieldLabel}>Estimated date lost</Text>
+              <Text style={styles.fieldValue}>{dateLabel}</Text>
+            </View>
+            <SymbolView
+              name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }}
+              tintColor={MAIZE}
+              size={22}
+              fallback={<Text style={styles.chevronFallback}>▣</Text>}
+            />
           </Pressable>
 
           <Pressable
-            style={styles.whiteCard}
+            accessibilityRole="button"
             onPress={() => {
               setLocationDraft(location);
               setLocationOpen(true);
             }}
+            style={({ pressed }) => [styles.fieldCard, pressed && styles.fieldCardPressed]}
           >
-            <Text style={styles.cardTitle}>{locationLabel}</Text>
+            <View style={styles.fieldCopy}>
+              <Text style={styles.fieldLabel}>Location lost</Text>
+              <Text style={location ? styles.fieldValue : styles.fieldPlaceholder}>
+                {location || "Add a campus location"}
+              </Text>
+            </View>
+            <SymbolView
+              name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }}
+              tintColor={MAIZE}
+              size={22}
+              fallback={<Text style={styles.chevronFallback}>⌖</Text>}
+            />
           </Pressable>
 
           {lastSubmitted ? (
@@ -254,7 +293,7 @@ export default function LostItemForm() {
           >
             <SymbolView
               name={{ ios: "house.fill", android: "home", web: "home" }}
-              tintColor="#F4D03F"
+              tintColor={MAIZE}
               size={28}
               fallback={<Text style={styles.homeFallback}>⌂</Text>}
             />
@@ -354,10 +393,17 @@ export default function LostItemForm() {
   );
 }
 
-const YELLOW = "#F4D03F";
-const YELLOW_BORDER = "#E8C547";
-const BLUE = "#7BA3E3";
-const DARK = "#3A3A3A";
+const fieldShadow =
+  Platform.OS === "ios"
+    ? {
+        shadowColor: "#001428",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.22,
+        shadowRadius: 18,
+      }
+    : Platform.OS === "android"
+      ? { elevation: 6 }
+      : { boxShadow: "0 12px 32px rgba(0, 20, 40, 0.28)" };
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -368,74 +414,102 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
     paddingTop: 28,
     paddingBottom: 24,
-    gap: 16,
+    gap: 14,
   },
-  whiteCard: {
+  fieldCard: {
     backgroundColor: "#fff",
-    borderWidth: 3,
-    borderColor: YELLOW_BORDER,
-    borderRadius: 8,
+    borderRadius: 20,
     paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+    borderLeftWidth: 5,
+    borderLeftColor: MAIZE,
+    ...fieldShadow,
   },
-  cardTitle: {
+  fieldCardStack: {
+    flexDirection: "column",
+    alignItems: "stretch",
+  },
+  fieldCardPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
+  },
+  fieldCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: BLUE_MID,
+  },
+  fieldValue: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: BLUE,
+  },
+  fieldPlaceholder: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#8A96A8",
+  },
+  chevronFallback: {
+    color: MAIZE,
     fontSize: 22,
     fontWeight: "700",
-    color: "#111",
-    textAlign: "center",
-  },
-  cardValue: {
-    marginTop: 6,
-    fontSize: 15,
-    color: "#333",
-    textAlign: "center",
   },
   descriptionInput: {
-    backgroundColor: YELLOW,
-    borderWidth: 3,
-    borderColor: YELLOW_BORDER,
-    borderRadius: 8,
-    minHeight: 110,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 18,
-    fontStyle: "italic",
-    color: "#3b2f00",
+    marginTop: 10,
+    backgroundColor: MAIZE_SOFT,
+    borderRadius: 14,
+    minHeight: 112,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: BLUE,
   },
   previewCard: {
     backgroundColor: "#fff",
-    borderWidth: 3,
-    borderColor: YELLOW_BORDER,
-    borderRadius: 8,
-    padding: 14,
+    borderRadius: 20,
+    padding: 16,
     gap: 6,
+    borderLeftWidth: 5,
+    borderLeftColor: MAIZE,
+    ...fieldShadow,
   },
   previewTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: BLUE_MID,
     marginBottom: 4,
   },
   previewLine: {
     fontSize: 14,
-    color: "#222",
+    color: BLUE,
   },
   submitBar: {
-    backgroundColor: DARK,
+    backgroundColor: BLUE_MID,
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   submitText: {
-    color: YELLOW,
-    fontSize: 22,
+    color: MAIZE,
+    fontSize: 18,
     fontWeight: "700",
+    letterSpacing: 0.3,
   },
   footer: {
-    backgroundColor: YELLOW,
+    backgroundColor: MAIZE,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
@@ -444,70 +518,74 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#111",
+    backgroundColor: BLUE,
     alignItems: "center",
     justifyContent: "center",
   },
   homeFallback: {
-    color: YELLOW,
+    color: MAIZE,
     fontSize: 26,
     fontWeight: "700",
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: "rgba(0, 39, 76, 0.55)",
     justifyContent: "center",
     padding: 24,
   },
   modalCard: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: YELLOW_BORDER,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     gap: 10,
+    borderTopWidth: 4,
+    borderTopColor: MAIZE,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
+    color: BLUE,
     textAlign: "center",
     marginBottom: 4,
   },
   modalHint: {
     fontSize: 13,
-    color: "#555",
+    color: BLUE_MID,
     textAlign: "center",
   },
   optionRow: {
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#f7f7f7",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: "#F4F7FB",
   },
   optionRowSelected: {
-    backgroundColor: YELLOW,
+    backgroundColor: MAIZE,
   },
   optionText: {
-    fontSize: 18,
+    fontSize: 17,
     textAlign: "center",
     fontWeight: "600",
+    color: BLUE,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderColor: "#D7DEE8",
+    backgroundColor: "#F4F7FB",
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 16,
+    color: BLUE,
   },
   modalSave: {
-    backgroundColor: DARK,
-    borderRadius: 8,
+    backgroundColor: BLUE,
+    borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
   },
   modalSaveText: {
-    color: YELLOW,
+    color: MAIZE,
     fontWeight: "700",
     fontSize: 16,
   },
@@ -524,6 +602,6 @@ const styles = StyleSheet.create({
   iosPickerDoneText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0B5FFF",
+    color: BLUE,
   },
 });
