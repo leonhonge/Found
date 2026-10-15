@@ -8,7 +8,7 @@
     "scheme": "michiganfound",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/water-bottle.jpg",
+      "icon": "./assets/images/water-bottle.jpg",
       "bundleIdentifier": "com.leonhonge.michiganfound"
     },
     "android": {
