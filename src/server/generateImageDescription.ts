@@ -16,7 +16,7 @@ export async function generateImageDescription(
   mimeType: string,
 ): Promise<GeneratedItemDetails> {
   const result = await gemini.models.generateContent({
-    model: "gemini-3.5-flash",
+    model: "gemini-3.5-flash-lite",
     contents: [
       { inlineData: { mimeType, data: imageBase64 } },
       {
