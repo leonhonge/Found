@@ -24,6 +24,20 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow MFound to take photos for this form.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow MFound to fill in where the item was lost."
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
