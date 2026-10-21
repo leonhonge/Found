@@ -27,9 +27,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to take photos for this form.",
+          "cameraPermission": "Allow MFound to take photos for this form.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow MFound to fill in where the item was lost."
         }
       ],
       "expo-router",

@@ -1,84 +1,81 @@
-import { Image } from "expo-image";
-import { useState } from "react";
-import { Button, StyleSheet, View } from "react-native";
-
-import { CameraCapture } from "@/components/camera-capture";
-
-export default function Index() {
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-
-  if (isCameraOpen) {
-    return (
-      <CameraCapture
-        onCancel={() => setIsCameraOpen(false)}
-        onCaptured={(uri) => {
-          setPhotoUri(uri);
-          setIsCameraOpen(false);
-        }}
-      />
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-
-      <Button title={photoUri ? "Retake photo" : "Take photo"} onPress={() => setIsCameraOpen(true)} />
-
-      {photoUri ? (
-        <Image source={{ uri: photoUri }} style={styles.preview} contentFit="cover" />
-      ) : null}
-import { type Href, useRouter } from "expo-router";
+import { type Href, Stack, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+const MAIZE = "#FFCB05";
+const BLUE = "#00274C";
 
 export default function Index() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Michigan Found</Text>
-      {/* Temporary: later this should go Home → camera → /lost */}
-      <Pressable
-        style={styles.button}
-        onPress={() => router.push("/lost" as Href)}
-      >
-        <Text style={styles.buttonText}>Report lost item</Text>
-      </Pressable>
-    </View>
+    <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ headerShown: false, title: "Michigan Found" }} />
+      <View style={styles.container}>
+        <View style={styles.hero}>
+          <Text style={styles.kicker}>University of Michigan</Text>
+          <Text style={styles.title}>Michigan Found</Text>
+          <Text style={styles.subtitle}>Report a lost item and help it get back to campus.</Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/lost" as Href)}
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+        >
+          <Text style={styles.buttonText}>Report lost item</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: BLUE,
+  },
   container: {
     flex: 1,
-    padding: 24,
-    gap: 12,
-  },
-  preview: {
-    width: "100%",
-    height: 220,
-    borderRadius: 8,
-    backgroundColor: "#eee",
-    alignItems: "center",
     justifyContent: "center",
-    gap: 16,
-    backgroundColor: "#7BA3E3",
-    padding: 24,
+    paddingHorizontal: 28,
+    gap: 36,
+  },
+  hero: {
+    gap: 10,
+  },
+  kicker: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: MAIZE,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111",
+    fontSize: 40,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  subtitle: {
+    fontSize: 17,
+    lineHeight: 24,
+    color: "#C5D4E8",
+    maxWidth: 320,
   },
   button: {
-    backgroundColor: "#3A3A3A",
-    paddingVertical: 14,
+    backgroundColor: MAIZE,
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 18,
+    alignItems: "center",
+  },
+  buttonPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
   buttonText: {
-    color: "#F4D03F",
+    color: BLUE,
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "800",
   },
 });

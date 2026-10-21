@@ -1,7 +1,11 @@
 import DateTimePicker from "@expo/ui/community/datetime-picker";
+import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { CameraCapture } from "@/components/camera-capture";
+import { getCurrentLocationLabel } from "@/lib/current-location";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -35,6 +39,7 @@ type SubmittedReport = {
   description: string;
   lostAt: string;
   location: string;
+  photoUri: string | null;
 };
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -101,6 +106,10 @@ export default function LostItemForm() {
   const [pickerMode, setPickerMode] = useState<"date" | "time" | "datetime" | null>(
     null,
   );
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(true);
+  const locationTouchedRef = useRef(false);
 
   useEffect(() => {
     if (isCategory(initialCategory)) {
@@ -110,6 +119,27 @@ export default function LostItemForm() {
       setDescription(initialDescription);
     }
   }, [initialCategory, initialDescription]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const label = await getCurrentLocationLabel();
+        if (!cancelled && label && !locationTouchedRef.current) {
+          setLocation(label);
+        }
+      } finally {
+        if (!cancelled) {
+          setLocationLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const dateLabel = useMemo(() => formatDateTime(lostAt), [lostAt]);
 
@@ -146,6 +176,7 @@ export default function LostItemForm() {
       description,
       lostAt: lostAt.toISOString(),
       location,
+      photoUri,
     };
     setLastSubmitted(report);
     Alert.alert(
@@ -155,7 +186,20 @@ export default function LostItemForm() {
         `Description: ${description || "(none)"}`,
         `Date lost: ${formatDateTime(lostAt)}`,
         `Location: ${location || "(none)"}`,
+        `Photo: ${photoUri || "(none)"}`,
       ].join("\n"),
+    );
+  }
+
+  if (isCameraOpen) {
+    return (
+      <CameraCapture
+        onCancel={() => setIsCameraOpen(false)}
+        onCaptured={(uri) => {
+          setPhotoUri(uri);
+          setIsCameraOpen(false);
+        }}
+      />
     );
   }
 
@@ -170,6 +214,23 @@ export default function LostItemForm() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setIsCameraOpen(true)}
+            style={({ pressed }) => [
+              styles.fieldCard,
+              styles.fieldCardStack,
+              pressed && styles.fieldCardPressed,
+            ]}
+          >
+            <Text style={styles.fieldLabel}>Photo</Text>
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
+            ) : (
+              <Text style={styles.fieldPlaceholder}>Take a photo of the item</Text>
+            )}
+          </Pressable>
+
           <Pressable
             accessibilityRole="button"
             onPress={() => setCategoryOpen(true)}
@@ -230,7 +291,8 @@ export default function LostItemForm() {
             <View style={styles.fieldCopy}>
               <Text style={styles.fieldLabel}>Location lost</Text>
               <Text style={location ? styles.fieldValue : styles.fieldPlaceholder}>
-                {location || "Add a campus location"}
+                {location ||
+                  (locationLoading ? "Finding current location..." : "Add a campus location")}
               </Text>
             </View>
             <SymbolView
@@ -255,6 +317,9 @@ export default function LostItemForm() {
               </Text>
               <Text style={styles.previewLine}>
                 Location: {lastSubmitted.location || "(none)"}
+              </Text>
+              <Text style={styles.previewLine}>
+                Photo: {lastSubmitted.photoUri || "(none)"}
               </Text>
             </View>
           ) : null}
@@ -335,7 +400,7 @@ export default function LostItemForm() {
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Location Lost</Text>
             <Text style={styles.modalHint}>
-              Type a place for now. This can later open the map page.
+              This starts as your current location. You can edit it.
             </Text>
             <TextInput
               style={styles.modalInput}
@@ -347,6 +412,7 @@ export default function LostItemForm() {
             <Pressable
               style={styles.modalSave}
               onPress={() => {
+                locationTouchedRef.current = true;
                 setLocation(locationDraft.trim());
                 setLocationOpen(false);
               }}
@@ -464,6 +530,13 @@ const styles = StyleSheet.create({
     color: MAIZE,
     fontSize: 22,
     fontWeight: "700",
+  },
+  photoPreview: {
+    marginTop: 10,
+    width: "100%",
+    height: 220,
+    borderRadius: 14,
+    backgroundColor: MAIZE_SOFT,
   },
   descriptionInput: {
     marginTop: 10,
