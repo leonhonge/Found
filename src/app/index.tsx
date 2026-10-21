@@ -18,13 +18,22 @@ export default function Index() {
           <Text style={styles.subtitle}>Report a lost item and help it get back to campus.</Text>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/lost" as Href)}
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-        >
-          <Text style={styles.buttonText}>Report lost item</Text>
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/lost" as Href)}
+            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.buttonText}>Report lost item</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/tickets" as Href)}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.secondaryButtonText}>View tickets</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -40,6 +49,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 28,
     gap: 36,
+  },
+  actions: {
+    gap: 12,
   },
   hero: {
     gap: 10,
@@ -75,6 +87,20 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: BLUE,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  secondaryButton: {
+    backgroundColor: "transparent",
+    borderWidth: 2,
+    borderColor: MAIZE,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 18,
+    alignItems: "center",
+  },
+  secondaryButtonText: {
+    color: MAIZE,
     fontSize: 18,
     fontWeight: "800",
   },

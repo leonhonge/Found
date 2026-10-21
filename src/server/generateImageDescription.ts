@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai/node";
+import { GoogleGenAI, Type } from "@google/genai"; // Ensure Type is imported
 
 import { ITEM_CATEGORIES } from "@/lib/item-categories";
 
@@ -11,28 +11,6 @@ export type GeneratedItemDetails = {
   description: string;
 };
 
-function parseGeneratedDetails(text: string | undefined): GeneratedItemDetails {
-  const fallback: GeneratedItemDetails = {
-    category: "Miscellaneous",
-    description: text?.trim() ?? "",
-  };
-
-  if (!text) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(text) as Partial<GeneratedItemDetails>;
-    return {
-      category: typeof parsed.category === "string" ? parsed.category : fallback.category,
-      description:
-        typeof parsed.description === "string" ? parsed.description.trim() : fallback.description,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
 export async function generateImageDescription(
   imageBase64: string,
   mimeType: string,
@@ -42,12 +20,44 @@ export async function generateImageDescription(
     contents: [
       { inlineData: { mimeType, data: imageBase64 } },
       {
-        text: `Identify a lost item from this photo. Return JSON only with keys category and description.
-category must be exactly one of: ${ITEM_CATEGORIES.join(", ")}.
-description should help the owner recognize the item, including small details, 15 words max.`,
+        text: `Identify the lost item from this photo. Provide a description focused entirely on the item itself, ignoring background or irrelevant elements.`,
       },
     ],
+    // Enforce structured output directly from Gemini
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          category: {
+            type: Type.STRING,
+            description: "The primary category of the lost item.",
+            // Strict enforcement of your specific array values
+            enum: ITEM_CATEGORIES, 
+          },
+          description: {
+            type: Type.STRING,
+            description: "A sentence to help the owner recognize the item, max 15 words. Describe specific small details.",
+          },
+        },
+        required: ["category", "description"],
+      },
+    },
   });
 
-  return parseGeneratedDetails(result.text);
+  // Gemini is now guaranteed to return a valid JSON matching your schema
+  try {
+    const data = JSON.parse(result.text!) as GeneratedItemDetails;
+    return {
+      category: data.category || "Miscellaneous",
+      description: data.description?.trim() || "",
+    };
+  } catch (error) {
+    console.error("Failed to parse verified JSON:", error);
+    return {
+      category: "Miscellaneous",
+      description: result.text?.trim() ?? "",
+    };
+  }
 }
+

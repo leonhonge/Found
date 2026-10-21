@@ -8,6 +8,7 @@ import { CameraCapture } from "@/components/camera-capture";
 import { getCurrentLocationLabel } from "@/lib/current-location";
 import { ITEM_CATEGORIES, isItemCategory, type ItemCategory } from "@/lib/item-categories";
 import { requestImageDescription } from "@/lib/requestImageDescription";
+import { addTicket } from "@/lib/tickets-store";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -92,11 +93,11 @@ export default function LostItemForm() {
   const [lostAt, setLostAt] = useState(() => new Date());
   const [location, setLocation] = useState("");
   const [locationDraft, setLocationDraft] = useState("");
-  const [lastSubmitted, setLastSubmitted] = useState<SubmittedReport | null>(
-    null,
-  );
+  const [descriptionDraft, setDescriptionDraft] = useState("");
 
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [descriptionConfirmOpen, setDescriptionConfirmOpen] = useState(false);
+  const [descriptionEditOpen, setDescriptionEditOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [webDateOpen, setWebDateOpen] = useState(false);
   const [webDateDraft, setWebDateDraft] = useState("");
@@ -176,17 +177,39 @@ export default function LostItemForm() {
       location,
       photoUri,
     };
-    setLastSubmitted(report);
+    addTicket(report);
     Alert.alert(
-      "Report submitted (preview)",
+      "Report submitted",
+      "Your ticket was saved. You can view all tickets from the home page.",
       [
-        `Category: ${category || "(none)"}`,
-        `Description: ${description || "(none)"}`,
-        `Date lost: ${formatDateTime(lostAt)}`,
-        `Location: ${location || "(none)"}`,
-        `Photo: ${photoUri || "(none)"}`,
-      ].join("\n"),
+        { text: "OK" },
+        { text: "View tickets", onPress: () => router.push("/tickets") },
+      ],
     );
+  }
+
+  function resetForm() {
+    setCategory("");
+    setDescription("");
+    setLostAt(new Date());
+    setLocation("");
+    setLocationDraft("");
+    setPhotoUri(null);
+    setDescriptionDraft("");
+    setPickerMode(null);
+    setIsIdentifying(false);
+    locationTouchedRef.current = true; // don't let auto-location refill it
+  }
+
+  function confirmReset() {
+    if (Platform.OS === "web") {
+      resetForm();
+      return;
+    }
+    Alert.alert("Reset form?", "This will clear all fields.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Reset", style: "destructive", onPress: resetForm },
+    ]);
   }
 
   async function fillDetailsFromPhoto(imageBase64?: string) {
@@ -273,22 +296,25 @@ export default function LostItemForm() {
             />
           </Pressable>
 
-          <View style={[styles.fieldCard, styles.fieldCardStack]}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setDescriptionConfirmOpen(true)}
+            style={({ pressed }) => [
+              styles.fieldCard,
+              styles.fieldCardStack,
+              pressed && styles.fieldCardPressed,
+            ]}
+          >
             <Text style={styles.fieldLabel}>Item description</Text>
-            <TextInput
-              style={styles.descriptionInput}
-              placeholder={
-                isIdentifying
+            <Text
+              style={description ? styles.descriptionPreview : [styles.descriptionPreview, styles.fieldPlaceholder]}
+            >
+              {description ||
+                (isIdentifying
                   ? "Identifying from photo..."
-                  : "Any identifying details: color, stickers, name, brand..."
-              }
-              placeholderTextColor="#8A7310"
-              multiline
-              textAlignVertical="top"
-              value={description}
-              onChangeText={setDescription}
-            />
-          </View>
+                  : "Any identifying details: color, stickers, name, brand...")}
+            </Text>
+          </Pressable>
 
           <Pressable
             accessibilityRole="button"
@@ -330,26 +356,6 @@ export default function LostItemForm() {
             />
           </Pressable>
 
-          {lastSubmitted ? (
-            <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Last submitted (temporary)</Text>
-              <Text style={styles.previewLine}>
-                Category: {lastSubmitted.category || "(none)"}
-              </Text>
-              <Text style={styles.previewLine}>
-                Description: {lastSubmitted.description || "(none)"}
-              </Text>
-              <Text style={styles.previewLine}>
-                Date lost: {formatDateTime(new Date(lastSubmitted.lostAt))}
-              </Text>
-              <Text style={styles.previewLine}>
-                Location: {lastSubmitted.location || "(none)"}
-              </Text>
-              <Text style={styles.previewLine}>
-                Photo: {lastSubmitted.photoUri || "(none)"}
-              </Text>
-            </View>
-          ) : null}
         </ScrollView>
 
         {Platform.OS !== "web" && pickerMode ? (
@@ -374,6 +380,15 @@ export default function LostItemForm() {
 
         <Pressable style={styles.submitBar} onPress={submitReport}>
           <Text style={styles.submitText}>Report Lost Item</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Reset form"
+          style={styles.resetButton}
+          onPress={confirmReset}
+        >
+          <Text style={styles.resetText}>Reset form</Text>
         </Pressable>
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -416,6 +431,69 @@ export default function LostItemForm() {
               </Pressable>
             ))}
           </View>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={descriptionConfirmOpen} transparent animationType="fade">
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setDescriptionConfirmOpen(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Edit description?</Text>
+            <Text style={styles.modalHint}>
+              Do you want to make changes to the item description?
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalSecondary}
+                onPress={() => setDescriptionConfirmOpen(false)}
+              >
+                <Text style={styles.modalSecondaryText}>Keep as is</Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalSave}
+                onPress={() => {
+                  setDescriptionDraft(description);
+                  setDescriptionConfirmOpen(false);
+                  setDescriptionEditOpen(true);
+                }}
+              >
+                <Text style={styles.modalSaveText}>Make changes</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={descriptionEditOpen} transparent animationType="fade">
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setDescriptionEditOpen(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Item description</Text>
+            <Text style={styles.modalHint}>Edit the description, then save.</Text>
+            <TextInput
+              style={[styles.modalInput, styles.descriptionModalInput]}
+              placeholder="Any identifying details: color, stickers, name, brand..."
+              placeholderTextColor="#8A7310"
+              multiline
+              textAlignVertical="top"
+              value={descriptionDraft}
+              onChangeText={setDescriptionDraft}
+              autoFocus
+            />
+            <Pressable
+              style={styles.modalSave}
+              onPress={() => {
+                setDescription(descriptionDraft.trim());
+                setDescriptionEditOpen(false);
+              }}
+            >
+              <Text style={styles.modalSaveText}>Save</Text>
+            </Pressable>
+          </Pressable>
         </Pressable>
       </Modal>
 
@@ -565,7 +643,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: MAIZE_SOFT,
   },
-  descriptionInput: {
+  descriptionPreview: {
     marginTop: 10,
     backgroundColor: MAIZE_SOFT,
     borderRadius: 14,
@@ -575,26 +653,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: BLUE,
   },
-  previewCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 16,
-    gap: 6,
-    borderLeftWidth: 5,
-    borderLeftColor: MAIZE,
-    ...fieldShadow,
-  },
-  previewTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    color: BLUE_MID,
-    marginBottom: 4,
-  },
-  previewLine: {
-    fontSize: 14,
-    color: BLUE,
+  descriptionModalInput: {
+    minHeight: 112,
   },
   submitBar: {
     backgroundColor: BLUE_MID,
@@ -606,6 +666,20 @@ const styles = StyleSheet.create({
     color: MAIZE,
     fontSize: 18,
     fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  resetButton: {
+    backgroundColor: BLUE_MID,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 203, 5, 0.25)",
+  },
+  resetText: {
+    color: "#B8C4D6",
+    fontSize: 13,
+    fontWeight: "600",
     letterSpacing: 0.3,
   },
   footer: {
@@ -677,6 +751,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: BLUE,
+  },
+  modalActions: {
+    gap: 10,
+  },
+  modalSecondary: {
+    backgroundColor: "#F4F7FB",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  modalSecondaryText: {
+    color: BLUE,
+    fontWeight: "700",
+    fontSize: 16,
   },
   modalSave: {
     backgroundColor: BLUE,
