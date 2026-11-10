@@ -1,12 +1,16 @@
 import DateTimePicker from "@expo/ui/community/datetime-picker";
 import { Image } from "expo-image";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Href, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CameraCapture } from "@/components/camera-capture";
 import { getCurrentLocationLabel } from "@/lib/current-location";
-import { ITEM_CATEGORIES, isItemCategory, type ItemCategory } from "@/lib/item-categories";
+import {
+  ITEM_CATEGORIES,
+  isItemCategory,
+  type ItemCategory,
+} from "@/lib/item-categories";
 import { requestImageDescription } from "@/lib/requestImageDescription";
 import { addTicket } from "@/lib/tickets-store";
 import {
@@ -21,7 +25,10 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 const MAIZE = "#FFCB05";
 const MAIZE_SOFT = "#FFF6CC";
@@ -101,23 +108,14 @@ export default function LostItemForm() {
   const [locationOpen, setLocationOpen] = useState(false);
   const [webDateOpen, setWebDateOpen] = useState(false);
   const [webDateDraft, setWebDateDraft] = useState("");
-  const [pickerMode, setPickerMode] = useState<"date" | "time" | "datetime" | null>(
-    null,
-  );
+  const [pickerMode, setPickerMode] = useState<
+    "date" | "time" | "datetime" | null
+  >(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isIdentifying, setIsIdentifying] = useState(false);
   const [locationLoading, setLocationLoading] = useState(true);
   const locationTouchedRef = useRef(false);
-
-  useEffect(() => {
-    if (isCategory(initialCategory)) {
-      setCategory(initialCategory);
-    }
-    if (initialDescription !== undefined) {
-      setDescription(initialDescription);
-    }
-  }, [initialCategory, initialDescription]);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +181,10 @@ export default function LostItemForm() {
       "Your ticket was saved. You can view all tickets from the home page.",
       [
         { text: "OK" },
-        { text: "View tickets", onPress: () => router.push("/tickets") },
+        {
+          text: "View tickets",
+          onPress: () => router.push("/tickets" as Href),
+        },
       ],
     );
   }
@@ -251,7 +252,9 @@ export default function LostItemForm() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <Stack.Screen options={{ headerShown: false, title: "Report Lost Item" }} />
+      <Stack.Screen
+        options={{ headerShown: false, title: "Report Lost Item" }}
+      />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -271,25 +274,43 @@ export default function LostItemForm() {
           >
             <Text style={styles.fieldLabel}>Photo</Text>
             {photoUri ? (
-              <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
+              <Image
+                source={{ uri: photoUri }}
+                style={styles.photoPreview}
+                contentFit="cover"
+              />
             ) : (
-              <Text style={styles.fieldPlaceholder}>Take a photo of the item</Text>
+              <Text style={styles.fieldPlaceholder}>
+                Take a photo of the item
+              </Text>
             )}
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
             onPress={() => setCategoryOpen(true)}
-            style={({ pressed }) => [styles.fieldCard, pressed && styles.fieldCardPressed]}
+            style={({ pressed }) => [
+              styles.fieldCard,
+              pressed && styles.fieldCardPressed,
+            ]}
           >
             <View style={styles.fieldCopy}>
               <Text style={styles.fieldLabel}>Category</Text>
-              <Text style={category ? styles.fieldValue : styles.fieldPlaceholder}>
-                {category || (isIdentifying ? "Identifying from photo..." : "Select a category")}
+              <Text
+                style={category ? styles.fieldValue : styles.fieldPlaceholder}
+              >
+                {category ||
+                  (isIdentifying
+                    ? "Identifying from photo..."
+                    : "Select a category")}
               </Text>
             </View>
             <SymbolView
-              name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }}
+              name={{
+                ios: "chevron.right",
+                android: "chevron_right",
+                web: "chevron_right",
+              }}
               tintColor={MAIZE}
               size={18}
               fallback={<Text style={styles.chevronFallback}>›</Text>}
@@ -307,7 +328,11 @@ export default function LostItemForm() {
           >
             <Text style={styles.fieldLabel}>Item description</Text>
             <Text
-              style={description ? styles.descriptionPreview : [styles.descriptionPreview, styles.fieldPlaceholder]}
+              style={
+                description
+                  ? styles.descriptionPreview
+                  : [styles.descriptionPreview, styles.fieldPlaceholder]
+              }
             >
               {description ||
                 (isIdentifying
@@ -319,14 +344,21 @@ export default function LostItemForm() {
           <Pressable
             accessibilityRole="button"
             onPress={openDatePicker}
-            style={({ pressed }) => [styles.fieldCard, pressed && styles.fieldCardPressed]}
+            style={({ pressed }) => [
+              styles.fieldCard,
+              pressed && styles.fieldCardPressed,
+            ]}
           >
             <View style={styles.fieldCopy}>
               <Text style={styles.fieldLabel}>Estimated date lost</Text>
               <Text style={styles.fieldValue}>{dateLabel}</Text>
             </View>
             <SymbolView
-              name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }}
+              name={{
+                ios: "calendar",
+                android: "calendar_month",
+                web: "calendar_month",
+              }}
               tintColor={MAIZE}
               size={22}
               fallback={<Text style={styles.chevronFallback}>▣</Text>}
@@ -339,27 +371,39 @@ export default function LostItemForm() {
               setLocationDraft(location);
               setLocationOpen(true);
             }}
-            style={({ pressed }) => [styles.fieldCard, pressed && styles.fieldCardPressed]}
+            style={({ pressed }) => [
+              styles.fieldCard,
+              pressed && styles.fieldCardPressed,
+            ]}
           >
             <View style={styles.fieldCopy}>
               <Text style={styles.fieldLabel}>Location lost</Text>
-              <Text style={location ? styles.fieldValue : styles.fieldPlaceholder}>
+              <Text
+                style={location ? styles.fieldValue : styles.fieldPlaceholder}
+              >
                 {location ||
-                  (locationLoading ? "Finding current location..." : "Add a campus location")}
+                  (locationLoading
+                    ? "Finding current location..."
+                    : "Add a campus location")}
               </Text>
             </View>
             <SymbolView
-              name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }}
+              name={{
+                ios: "mappin.and.ellipse",
+                android: "location_on",
+                web: "location_on",
+              }}
               tintColor={MAIZE}
               size={22}
               fallback={<Text style={styles.chevronFallback}>⌖</Text>}
             />
           </Pressable>
-
         </ScrollView>
 
         {Platform.OS !== "web" && pickerMode ? (
-          <View style={Platform.OS === "ios" ? styles.iosPickerWrap : undefined}>
+          <View
+            style={Platform.OS === "ios" ? styles.iosPickerWrap : undefined}
+          >
             {Platform.OS === "ios" ? (
               <Pressable
                 style={styles.iosPickerDone}
@@ -391,7 +435,12 @@ export default function LostItemForm() {
           <Text style={styles.resetText}>Reset form</Text>
         </Pressable>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: Math.max(insets.bottom, 10) },
+          ]}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Home"
@@ -473,7 +522,9 @@ export default function LostItemForm() {
         >
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Item description</Text>
-            <Text style={styles.modalHint}>Edit the description, then save.</Text>
+            <Text style={styles.modalHint}>
+              Edit the description, then save.
+            </Text>
             <TextInput
               style={[styles.modalInput, styles.descriptionModalInput]}
               placeholder="Any identifying details: color, stickers, name, brand..."
