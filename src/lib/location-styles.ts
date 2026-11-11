@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 
-export const location_styles = StyleSheet.create({
+export const locationStyles = StyleSheet.create({
     container: { flex: 1 },
   map: { flex: 1 },
   panel: {
