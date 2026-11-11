@@ -22,16 +22,6 @@ function TicketCard({ ticket }: { ticket: SubmittedAdminTicket }) {
       {ticket.photoUri ? (
         <Image source={{ uri: ticket.photoUri }} style={styles.photoPreview} contentFit="cover" />
       ) : null}
-      <Text style={styles.previewTitle}>Ticket {ticket.id}</Text>
-      <Text style={styles.previewLine}>Category: {ticket.category || "(none)"}</Text>
-      <Text style={styles.previewLine}>Description: {ticket.description || "(none)"}</Text>
-      <Text style={styles.previewLine}>
-        Date lost: {formatDateTime(new Date(ticket.lostAt))}
-      </Text>
-      <Text style={styles.previewLine}>Location: {ticket.location || "(none)"}</Text>
-      <Text style={styles.previewLine}>
-        Submitted: {formatDateTime(new Date(ticket.submittedAt))}
-      </Text>
     </View>
   );
 }
