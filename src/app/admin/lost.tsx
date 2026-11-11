@@ -12,7 +12,7 @@ import {
   type ItemCategory,
 } from "@/lib/item-categories";
 import { requestImageDescription } from "@/lib/requestImageDescription";
-import { addTicket } from "@/lib/tickets-store";
+import { addAdminTicket } from "@/lib/tickets-store";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -175,7 +175,7 @@ export default function LostItemForm() {
       location,
       photoUri,
     };
-    addTicket(report);
+    addAdminTicket(report);
     Alert.alert(
       "Report submitted",
       "Your ticket was saved. You can view all tickets from the home page.",
