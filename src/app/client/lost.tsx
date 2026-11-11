@@ -33,8 +33,7 @@ type Category = ItemCategory;
 type SubmittedReport = {
   category: Category | "";
   description: string;
-  /** The first day in the selected date range. Kept as `lostAt` for compatibility. */
-  lostAt: string;
+  lostFrom: string;
   /** The last day in the selected date range. */
   lostUntil: string;
   location: string;
@@ -179,21 +178,21 @@ export default function LostItemForm() {
     const report: SubmittedReport = {
       category,
       description: trimmedDescription,
-      // Keep the start date in the existing field and save the range end too.
-      lostAt: startOfDay(lostRangeStart).toISOString(),
+      lostFrom: startOfDay(lostRangeStart).toISOString(),
       lostUntil: startOfDay(endDate).toISOString(),
       location: trimmedLocation,
     };
 
     addClientTicket(report);
     Alert.alert(
-      "Report submitted",
-      "Your ticket was saved. You can view all tickets from the home page.",
+      "Are you sure you want to submit?",
+      "This will log this item as lost.",
       [
-        { text: "OK" },
         {
-          text: "View tickets",
-          onPress: () => router.push("/tickets" as Href),
+          text: "No",
+        },
+        { text: "Yes",
+          onPress: () => router.push("/client/itemresults" as Href),
         },
       ],
     );

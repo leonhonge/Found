@@ -179,7 +179,7 @@ export default function LostItemForm() {
         { text: "OK" },
         {
           text: "View tickets",
-          onPress: () => router.push("/tickets" as Href),
+          onPress: () => router.push("admin/tickets" as Href),
         },
       ],
     );
