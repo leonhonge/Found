@@ -247,7 +247,7 @@ export default function LostItemForm() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <Stack.Screen
         options={{ headerShown: false, title: "Report Lost Item" }}
       />
