@@ -17,7 +17,7 @@ export default function RootLayout() {
       />
 
       <Stack.Screen
-        name="client/lost"
+        name="client"
         options={{
           title: "Report Lost Item",
           headerShown: true,

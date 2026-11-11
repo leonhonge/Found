@@ -20,7 +20,7 @@ export default function Index() {
             onPress={() => router.push("/client/lost" as Href)}
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           >
-            <Text style={styles.buttonText}>Report lost item</Text>
+            <Text style={styles.buttonText}>Find lost item</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
