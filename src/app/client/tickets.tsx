@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
@@ -7,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { MAIZE } from "@/lib/theme";
 import { ticketStyles } from "@/lib/ticket-styles";
-import { getTickets, subscribeTickets, type SubmittedAdminTicket } from "@/lib/tickets-store";
+import { getClientTickets, subscribeTickets, type SubmittedClientTicket } from "@/lib/tickets-store";
 
 function formatDateTime(date: Date): string {
   return date.toLocaleString(undefined, {
@@ -16,17 +15,17 @@ function formatDateTime(date: Date): string {
   });
 }
 
-function TicketCard({ ticket }: { ticket: SubmittedAdminTicket }) {
+function TicketCard({ ticket }: { ticket: SubmittedClientTicket }) {
   return (
     <View style={styles.previewCard}>
-      {ticket.photoUri ? (
-        <Image source={{ uri: ticket.photoUri }} style={styles.photoPreview} contentFit="cover" />
-      ) : null}
       <Text style={styles.previewTitle}>Ticket {ticket.id}</Text>
       <Text style={styles.previewLine}>Category: {ticket.category || "(none)"}</Text>
       <Text style={styles.previewLine}>Description: {ticket.description || "(none)"}</Text>
       <Text style={styles.previewLine}>
-        Date lost: {formatDateTime(new Date(ticket.lostAt))}
+        Date lost: {formatDateTime(new Date(ticket.lostFrom))}
+      </Text>
+      <Text style={styles.previewLine}>
+        Date lost: {formatDateTime(new Date(ticket.lostUntil))}
       </Text>
       <Text style={styles.previewLine}>Location: {ticket.location || "(none)"}</Text>
       <Text style={styles.previewLine}>
@@ -39,11 +38,11 @@ function TicketCard({ ticket }: { ticket: SubmittedAdminTicket }) {
 export default function TicketsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [tickets, setTickets] = useState<SubmittedAdminTicket[]>(() => getTickets());
+  const [tickets, setTickets] = useState<SubmittedClientTicket[]>(() => getClientTickets());
 
   useEffect(() => {
     return subscribeTickets(() => {
-      setTickets(getTickets());
+      setTickets(getClientTickets());
     });
   }, []);
 
@@ -51,7 +50,7 @@ export default function TicketsScreen() {
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <Stack.Screen options={{ headerShown: false, title: "Tickets" }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.pageTitle}>Submitted tickets</Text>
+        <Text style={styles.pageTitle}>Your Past Lost Items</Text>
         {tickets.length === 0 ? (
           <View style={styles.previewCard}>
             <Text style={styles.previewTitle}>No tickets yet</Text>

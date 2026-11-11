@@ -7,7 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { MAIZE } from "@/lib/theme";
 import { ticketStyles } from "@/lib/ticket-styles";
-import { getTickets, subscribeTickets, type SubmittedAdminTicket } from "@/lib/tickets-store";
+import { getAdminTickets, subscribeTickets, type SubmittedAdminTicket } from "@/lib/tickets-store";
 
 function formatDateTime(date: Date): string {
   return date.toLocaleString(undefined, {
@@ -39,11 +39,11 @@ function TicketCard({ ticket }: { ticket: SubmittedAdminTicket }) {
 export default function TicketsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [tickets, setTickets] = useState<SubmittedAdminTicket[]>(() => getTickets());
+  const [tickets, setTickets] = useState<SubmittedAdminTicket[]>(() => getAdminTickets());
 
   useEffect(() => {
     return subscribeTickets(() => {
-      setTickets(getTickets());
+      setTickets(getAdminTickets());
     });
   }, []);
 
