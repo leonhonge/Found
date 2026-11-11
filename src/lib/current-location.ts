@@ -1,13 +1,13 @@
 import * as Location from "expo-location";
 
-import { matchFrontDeskBuilding } from "@/lib/umich-front-desk-buildings";
+import { matchBuilding } from "@/lib/umich-front-desk-buildings";
 
-function formatPlace(
+async function formatPlace(
   place: Location.LocationGeocodedAddress,
   latitude: number,
   longitude: number,
-): string {
-  const frontDeskBuilding = matchFrontDeskBuilding(place);
+): Promise<string> {
+  const frontDeskBuilding = await matchBuilding(place);
   if (frontDeskBuilding) {
     return frontDeskBuilding.name;
   }
