@@ -1,8 +1,7 @@
+import { landingStyles } from "@/lib/landing-styles";
 import { type Href, Stack, useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import { landingStyles } from "@/lib/landing-styles";
 
 export default function Index() {
   const router = useRouter();
@@ -14,7 +13,7 @@ export default function Index() {
         <View style={styles.hero}>
           <Text style={styles.kicker}>University of Michigan</Text>
           <Text style={styles.title}>Michigan Found</Text>
-          <Text style={styles.subtitle}>Welcome to the University of Michigan's lost and found system.</Text>
+          <Text style={styles.subtitle}>Welcome to the University of Michigan Lost and Found system.</Text>
         </View>
         <View style={styles.accentBar} />
         <View style={styles.actions}>
