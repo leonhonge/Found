@@ -1,4 +1,4 @@
-import { BLUE, MAIZE } from "@/lib/theme";
+import { BLUE, MAIZE } from "@/styles/theme";
 import { StyleSheet } from "react-native";
 
 export const landingStyles = StyleSheet.create({

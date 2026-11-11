@@ -5,30 +5,38 @@ import { SymbolView } from "expo-symbols";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CameraCapture } from "@/components/camera-capture";
-import { lostStyles } from "@/lib/admin-lost-styles";
 import {
-  ITEM_CATEGORIES,
-  isItemCategory,
-  type ItemCategory,
-} from "@/lib/item-categories";
-import { getCurrentLocationLabel } from "@/lib/location";
-import { requestImageDescription } from "@/lib/requestImageDescription";
-import { MAIZE } from "@/lib/theme";
-import { addAdminTicket } from "@/lib/tickets-store";
+    createCatalogItem,
+    uploadCatalogImage,
+} from "@/lib/campus/catalog-service";
+import { getCurrentLocationLabel } from "@/lib/campus/location-service";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View
+    loadBuildings,
+    type Building
+} from "@/lib/campus/umich-buildings";
+import {
+    ITEM_CATEGORIES,
+    isItemCategory,
+    type ItemCategory,
+} from "@/lib/constants/item-categories";
+import { requestImageDescription } from "@/lib/services/ai/image-client";
+import { addAdminTicket } from "@/lib/state/tickets-store";
+import { lostStyles } from "@/styles/admin-lost-styles";
+import { MAIZE } from "@/styles/theme";
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View
 } from "react-native";
 import {
-  SafeAreaView,
-  useSafeAreaInsets,
+    SafeAreaView,
+    useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 const CATEGORIES = ITEM_CATEGORIES;
@@ -98,7 +106,12 @@ export default function LostItemForm() {
   const [locationDraft, setLocationDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
 
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [buildingOpen, setBuildingOpen] = useState(false);
   const [descriptionConfirmOpen, setDescriptionConfirmOpen] = useState(false);
   const [descriptionEditOpen, setDescriptionEditOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
@@ -118,10 +131,27 @@ export default function LostItemForm() {
 
     (async () => {
       try {
-        const label = await getCurrentLocationLabel();
-        if (!cancelled && label && !locationTouchedRef.current) {
+        const [loadedBuildings, label] = await Promise.all([
+          loadBuildings(),
+          getCurrentLocationLabel(),
+        ]);
+
+        if (cancelled) return;
+
+        setBuildings(loadedBuildings);
+
+        if (label && !locationTouchedRef.current) {
           setLocation(label);
+          // Try to match the label to a building
+          const match = loadedBuildings.find(
+            (b: Building) => b.name.toLowerCase() === label.toLowerCase()
+          );
+          if (match) {
+            setSelectedBuilding(match);
+          }
         }
+      } catch (err) {
+        console.error("Error loading initial data:", err);
       } finally {
         if (!cancelled) {
           setLocationLoading(false);
@@ -163,26 +193,64 @@ export default function LostItemForm() {
     setLostAt(selectedDate);
   }
 
-  function submitReport() {
-    const report: SubmittedReport = {
-      category,
-      description,
-      lostAt: lostAt.toISOString(),
-      location,
-      photoUri,
-    };
-    addAdminTicket(report);
-    Alert.alert(
-      "Report submitted",
-      "Your ticket was saved. You can view all tickets from the home page.",
-      [
-        { text: "OK" },
-        {
-          text: "View tickets",
-          onPress: () => router.push("/admin/tickets" as Href),
-        },
-      ],
-    );
+  async function submitReport() {
+    if (!category || !description || !location || !selectedBuilding) {
+      Alert.alert(
+        "Missing information",
+        "Please fill in all fields and select a building."
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let image_path: string | null = null;
+      if (photoUri) {
+        image_path = await uploadCatalogImage(photoUri);
+      }
+
+      const itemData = {
+        category,
+        description,
+        found_at: lostAt.toISOString(),
+        building_id: selectedBuilding.id,
+        location_detail: location,
+        status: "available",
+        image_path,
+      };
+
+      await createCatalogItem(itemData);
+
+      // Still update local store for immediate UI feedback in other parts if needed
+      const report: SubmittedReport = {
+        category,
+        description,
+        lostAt: lostAt.toISOString(),
+        location,
+        photoUri,
+      };
+      addAdminTicket(report);
+
+      Alert.alert(
+        "Report submitted",
+        "Your item was saved to the database. You can view all tickets from the home page.",
+        [
+          { text: "OK", onPress: resetForm },
+          {
+            text: "View tickets",
+            onPress: () => {
+              resetForm();
+              router.push("/admin/tickets" as Href);
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error("Error submitting report:", err);
+      Alert.alert("Submission failed", "There was an error saving your report.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function resetForm() {
@@ -195,6 +263,7 @@ export default function LostItemForm() {
     setDescriptionDraft("");
     setPickerMode(null);
     setIsIdentifying(false);
+    setSelectedBuilding(null);
     locationTouchedRef.current = true; // don't let auto-location refill it
   }
 
@@ -363,6 +432,36 @@ export default function LostItemForm() {
 
           <Pressable
             accessibilityRole="button"
+            onPress={() => setBuildingOpen(true)}
+            style={({ pressed }) => [
+              styles.fieldCard,
+              pressed && styles.fieldCardPressed,
+            ]}
+          >
+            <View style={styles.fieldCopy}>
+              <Text style={styles.fieldLabel}>Found in building</Text>
+              <Text
+                style={
+                  selectedBuilding ? styles.fieldValue : styles.fieldPlaceholder
+                }
+              >
+                {selectedBuilding ? selectedBuilding.name : "Select building"}
+              </Text>
+            </View>
+            <SymbolView
+              name={{
+                ios: "chevron.right",
+                android: "chevron_right",
+                web: "chevron_right",
+              }}
+              tintColor={MAIZE}
+              size={18}
+              fallback={<Text style={styles.chevronFallback}>›</Text>}
+            />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             onPress={() => {
               setLocationDraft(location);
               setLocationOpen(true);
@@ -395,63 +494,69 @@ export default function LostItemForm() {
             />
           </Pressable>
         </ScrollView>
+      </KeyboardAvoidingView>
 
-        {Platform.OS !== "web" && pickerMode ? (
-          <View
-            style={Platform.OS === "ios" ? styles.iosPickerWrap : undefined}
-          >
-            {Platform.OS === "ios" ? (
-              <Pressable
-                style={styles.iosPickerDone}
-                onPress={() => setPickerMode(null)}
-              >
-                <Text style={styles.iosPickerDoneText}>Done</Text>
-              </Pressable>
-            ) : null}
-            <DateTimePicker
-              value={lostAt}
-              mode={pickerMode}
-              presentation={Platform.OS === "android" ? "dialog" : undefined}
-              onValueChange={onNativeDateChange}
-              onDismiss={() => setPickerMode(null)}
-            />
-          </View>
-        ) : null}
+      {Platform.OS !== "web" && pickerMode ? (
+        <View
+          style={Platform.OS === "ios" ? styles.iosPickerWrap : undefined}
+        >
+          {Platform.OS === "ios" ? (
+            <Pressable
+              style={styles.iosPickerDone}
+              onPress={() => setPickerMode(null)}
+            >
+              <Text style={styles.iosPickerDoneText}>Done</Text>
+            </Pressable>
+          ) : null}
+          <DateTimePicker
+            value={lostAt}
+            mode={pickerMode}
+            presentation={Platform.OS === "android" ? "dialog" : undefined}
+            onValueChange={onNativeDateChange}
+            onDismiss={() => setPickerMode(null)}
+          />
+        </View>
+      ) : null}
 
-        <Pressable style={styles.submitBar} onPress={submitReport}>
-          <Text style={styles.submitText}>Report Lost Item</Text>
-        </Pressable>
+      <Pressable 
+        style={[styles.submitBar, isSubmitting && { opacity: 0.7 }]} 
+        onPress={submitReport}
+        disabled={isSubmitting}
+      >
+        <Text style={styles.submitText}>
+          {isSubmitting ? "Submitting..." : "Report Lost Item"}
+        </Text>
+      </Pressable>
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Reset form"
+        style={styles.resetButton}
+        onPress={confirmReset}
+      >
+        <Text style={styles.resetText}>Reset form</Text>
+      </Pressable>
+
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: Math.max(insets.bottom, 10) },
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Reset form"
-          style={styles.resetButton}
-          onPress={confirmReset}
+          accessibilityLabel="Home"
+          style={styles.homeButton}
+          onPress={() => router.push("/")}
         >
-          <Text style={styles.resetText}>Reset form</Text>
+          <SymbolView
+            name={{ ios: "house.fill", android: "home", web: "home" }}
+            tintColor={MAIZE}
+            size={28}
+            fallback={<Text style={styles.homeFallback}>⌂</Text>}
+          />
         </Pressable>
-
-        <View
-          style={[
-            styles.footer,
-            { paddingBottom: Math.max(insets.bottom, 10) },
-          ]}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Home"
-            style={styles.homeButton}
-            onPress={() => router.push("/")}
-          >
-            <SymbolView
-              name={{ ios: "house.fill", android: "home", web: "home" }}
-              tintColor={MAIZE}
-              size={28}
-              fallback={<Text style={styles.homeFallback}>⌂</Text>}
-            />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+      </View>
 
       <Modal visible={categoryOpen} transparent animationType="fade">
         <Pressable
@@ -472,9 +577,40 @@ export default function LostItemForm() {
                   setCategoryOpen(false);
                 }}
               >
-                <Text style={styles.optionText}>{option}</Text>
+                <Text style={option === category ? [styles.optionText, { fontWeight: '700' }] : styles.optionText}>{option}</Text>
               </Pressable>
             ))}
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={buildingOpen} transparent animationType="fade">
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setBuildingOpen(false)}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Select Building</Text>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {buildings.map((b) => (
+                <Pressable
+                  key={b.id}
+                  style={[
+                    styles.optionRow,
+                    selectedBuilding?.id === b.id && styles.optionRowSelected,
+                    { marginBottom: 8 }
+                  ]}
+                  onPress={() => {
+                    setSelectedBuilding(b);
+                    setBuildingOpen(false);
+                  }}
+                >
+                  <Text style={selectedBuilding?.id === b.id ? [styles.optionText, { fontWeight: '700' }] : styles.optionText}>
+                    {b.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
         </Pressable>
       </Modal>

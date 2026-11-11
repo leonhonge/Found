@@ -4,15 +4,15 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import MapView, { Marker, type MapPressEvent } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type { Coordinates } from "@/lib/location";
+import type { Coordinates } from "@/lib/campus/location-service";
 import {
   findBuildingsWithinRadius,
   getLabelForCoordinates,
   SEARCH_RADIUS_METERS,
-} from "@/lib/location";
-import { locationStyles } from "@/lib/location-styles";
-import { clearMarker, getMarker, saveMarker } from "@/lib/marker-storage";
-import { MAIZE } from "@/lib/theme";
+} from "@/lib/campus/location-service";
+import { clearMarker, getMarker, saveMarker } from "@/lib/campus/marker-store";
+import { locationStyles } from "@/styles/location-styles";
+import { MAIZE } from "@/styles/theme";
 
 const DEFAULT_REGION = {
   latitude: 42.278,
@@ -53,7 +53,7 @@ export default function MapScreen() {
         getLabelForCoordinates(draft.latitude, draft.longitude),
         findBuildingsWithinRadius(draft, SEARCH_RADIUS_METERS),
       ]);
-      await saveMarker({ ...draft, label, nearbyBuildings, savedAt: Date.now() });
+      saveMarker({ ...draft, label, nearbyBuildings, savedAt: Date.now() });
       router.back();
     } finally {
       setSaving(false);
@@ -62,7 +62,7 @@ export default function MapScreen() {
 
   async function onClear() {
     setDraft(null);
-    await clearMarker();
+    clearMarker();
   }
 
   return (

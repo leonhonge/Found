@@ -1,11 +1,11 @@
 // src/lib/api.ts
-import { supabase } from "@/lib/supabase";
 
 export type Building = { id: number; name: string; address: string };
 
 export type CatalogItem = {
   id: number;
   image_path: string | null;
+  category: string;
   description: string;
   found_at: string;            // ISO string from timestamptz
   building_id: number;
@@ -19,9 +19,18 @@ export type Ticket = {
   id: number;
   student_name: string;
   uniqname: string;
-  lost_at: string;
-  building_id: number | null;
+  lost_from: string;
+  lost_until: string;
+  building_ids: number[];
   item_description: string;
+  created_at: string;
+};
+
+export type Profile = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: 'admin' | 'client';
   created_at: string;
 };
 

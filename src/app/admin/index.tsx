@@ -1,4 +1,4 @@
-import { landingStyles } from "@/lib/landing-styles";
+import { landingStyles } from "@/styles/landing-styles";
 import { type Href, Stack, useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

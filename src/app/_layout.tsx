@@ -19,10 +19,7 @@ export default function RootLayout() {
       <Stack.Screen
         name="client"
         options={{
-          title: "Report Lost Item",
-          headerShown: true,
-          headerTransparent: false,
-          headerBackTitle: "Michigan Found",
+          headerShown: false,
         }}
       />
     </Stack>

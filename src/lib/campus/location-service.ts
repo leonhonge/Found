@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 
-import { loadBuildings, matchBuilding, type Building } from "@/lib/umich-front-desk-buildings";
+import { loadBuildings, matchBuilding, type Building } from "@/lib/campus/umich-buildings";
 
 export type Coordinates = {
   latitude: number;

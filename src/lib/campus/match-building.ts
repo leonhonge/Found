@@ -77,12 +77,6 @@ export function matchBuilding<T extends { name: string; address: string }>(
   const formattedKey = place.formattedAddress ? addressKey(place.formattedAddress) : "";
   const inputNameKey = place.name ? nameKey(place.name) : "";
 
-  console.log("Found: Matching input:", {
-    originalName: place.name,
-    inputNameKey,
-    pulledKey,
-    formattedKey,
-  });
 
   // 1. Try address matching first (more specific)
   for (const b of buildings) {
@@ -93,13 +87,6 @@ export function matchBuilding<T extends { name: string; address: string }>(
     const formattedMatch = formattedKey && (formattedKey === bKey || formattedKey.includes(bKey) || bKey.includes(formattedKey));
 
     if (pulledMatch || formattedMatch) {
-      console.log("Found: Matched on address!", { 
-        pulledKey, 
-        formattedKey, 
-        bKey, 
-        building: b.name,
-        matchType: pulledMatch ? "pulled" : "formatted"
-      });
       return b;
     }
   }
@@ -109,16 +96,9 @@ export function matchBuilding<T extends { name: string; address: string }>(
     for (const b of buildings) {
       const bNameKey = nameKey(b.name);
       if (bNameKey && (bNameKey === inputNameKey || bNameKey.includes(inputNameKey) || inputNameKey.includes(bNameKey))) {
-        console.log("Found: Matched on name!", { 
-          inputNameKey, 
-          bNameKey, 
-          building: b.name 
-        });
         return b;
       }
     }
   }
-
-  console.log("Found: No match found for input.");
   return null;
 }

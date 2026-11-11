@@ -1,13 +1,14 @@
 import { Href, Stack, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 import { useMemo, useState } from "react";
 
-import { lostStyles } from "@/lib/client-lost-styles";
 import {
   ITEM_CATEGORIES,
   type ItemCategory
-} from "@/lib/item-categories";
-import { addClientTicket } from "@/lib/tickets-store";
+} from "@/lib/constants/item-categories";
+import { addClientTicket } from "@/lib/state/tickets-store";
+import { lostStyles } from "@/styles/client-lost-styles";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -24,8 +25,8 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import { clearMarker, useMarker } from "@/lib/marker-storage";
-import { MAIZE } from "@/lib/theme";
+import { clearMarker, useMarker } from "@/lib/campus/marker-store";
+import { MAIZE } from "@/styles/theme";
 
 const CATEGORIES = ITEM_CATEGORIES;
 
@@ -38,7 +39,7 @@ type SubmittedReport = {
   /** The last day in the selected date range. */
   lostUntil: string;
   location: string;
-  nearbyBuildings?: string[]
+  buildingIds: number[];
 };
 
 function startOfDay(date: Date): Date {
@@ -189,21 +190,24 @@ export default function LostItemForm() {
       lostFrom: startOfDay(lostRangeStart).toISOString(),
       lostUntil: startOfDay(endDate).toISOString(),
       location: trimmedLocation,
+      buildingIds: nearbyBuildings.map((b) => b.id),
     };
 
     addClientTicket(report);
-    Alert.alert(
-      "Are you sure you want to submit?",
-      "This will log this item as lost.",
-      [
-        {
-          text: "No",
-        },
-        { text: "Yes",
-          onPress: () => router.push("/client/itemresults" as Href),
-        },
-      ],
-    );
+    
+    // Pass the matching criteria to the results page
+    router.push({
+      pathname: "/client/itemresults",
+      params: {
+        buildingIds: JSON.stringify(report.buildingIds),
+        lostFrom: report.lostFrom,
+        lostUntil: report.lostUntil,
+        ticketDescription: report.description,
+        category: report.category,
+      }
+    } as any);
+    
+    clearMarker();
   }
 
   function resetForm() {
@@ -232,14 +236,33 @@ export default function LostItemForm() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
+      <StatusBar style="light" />
       <Stack.Screen
-        options={{ headerShown: false, title: "Report Lost Item" }}
+        options={{ headerShown: false, title: "Find Lost Item" }}
       />
 
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        <View style={[styles.headerSpace, { paddingTop: insets.top + 10 }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && { opacity: 0.7 }
+            ]}
+          >
+            <SymbolView
+              name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }}
+              tintColor="#FFFFFF"
+              size={24}
+            />
+          </Pressable>
+          <Text style={styles.headerTitle}>Find Lost Item</Text>
+        </View>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -348,41 +371,41 @@ export default function LostItemForm() {
             />
           </Pressable>
         </ScrollView>
+      </KeyboardAvoidingView>
 
-        <Pressable style={styles.submitBar} onPress={submitReport}>
-          <Text style={styles.submitText}>Report Lost Item</Text>
-        </Pressable>
+      <Pressable style={styles.submitBar} onPress={submitReport}>
+        <Text style={styles.submitText}>Find Item</Text>
+      </Pressable>
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Reset form"
+        style={styles.resetButton}
+        onPress={confirmReset}
+      >
+        <Text style={styles.resetText}>Reset form</Text>
+      </Pressable>
+
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: Math.max(insets.bottom, 10) },
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Reset form"
-          style={styles.resetButton}
-          onPress={confirmReset}
+          accessibilityLabel="Home"
+          style={styles.homeButton}
+          onPress={() => router.push("/")}
         >
-          <Text style={styles.resetText}>Reset form</Text>
+          <SymbolView
+            name={{ ios: "house.fill", android: "home", web: "home" }}
+            tintColor={MAIZE}
+            size={28}
+            fallback={<Text style={styles.homeFallback}>⌂</Text>}
+          />
         </Pressable>
-
-        <View
-          style={[
-            styles.footer,
-            { paddingBottom: Math.max(insets.bottom, 10) },
-          ]}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Home"
-            style={styles.homeButton}
-            onPress={() => router.push("/")}
-          >
-            <SymbolView
-              name={{ ios: "house.fill", android: "home", web: "home" }}
-              tintColor={MAIZE}
-              size={28}
-              fallback={<Text style={styles.homeFallback}>⌂</Text>}
-            />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+      </View>
 
       <Modal
         visible={categoryOpen}

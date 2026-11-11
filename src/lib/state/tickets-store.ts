@@ -15,6 +15,7 @@ export type SubmittedClientTicket = {
   lostFrom: string;
   lostUntil: string;
   location: string;
+  buildingIds: number[];
   submittedAt: string;
 };
 

@@ -1,5 +1,5 @@
-import { supabase } from "@/lib/supabase";
-import { matchBuilding as genericMatchBuilding, type PlaceInput } from "./match_building";
+import { supabase } from "@/lib/supabase/client";
+import { matchBuilding as genericMatchBuilding, type PlaceInput } from "./match-building";
 
 export type { PlaceInput };
 export type Building = { id: number; name: string; address: string };
@@ -23,11 +23,6 @@ export async function loadBuildings(): Promise<Building[]> {
       throw new Error(`Supabase error: ${error.message}`);
     }
 
-    console.log(`Found: Successfully loaded ${data?.length ?? 0} buildings.`);
-    if (data && data.length > 0) {
-      console.log("Found: Sample building data:", JSON.stringify(data.slice(0, 2), null, 2));
-    }
-    
     cache = data ?? [];
     return cache;
   })();

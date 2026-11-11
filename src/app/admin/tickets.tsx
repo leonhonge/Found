@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { MAIZE } from "@/lib/theme";
-import { ticketStyles } from "@/lib/ticket-styles";
-import { getAdminTickets, subscribeTickets, type SubmittedAdminTicket } from "@/lib/tickets-store";
+import { getAdminTickets, subscribeTickets, type SubmittedAdminTicket } from "@/lib/state/tickets-store";
+import { MAIZE } from "@/styles/theme";
+import { ticketStyles } from "@/styles/ticket-styles";
 
 function formatDateTime(date: Date): string {
   return date.toLocaleString(undefined, {
