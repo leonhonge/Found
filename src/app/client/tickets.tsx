@@ -51,7 +51,7 @@ export default function TicketsScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <Stack.Screen options={{ headerShown: false, title: "Tickets" }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.pageTitle}>Submitted tickets</Text>

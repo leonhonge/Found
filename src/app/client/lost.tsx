@@ -227,7 +227,7 @@ export default function LostItemForm() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <Stack.Screen
         options={{ headerShown: false, title: "Report Lost Item" }}
       />
@@ -578,7 +578,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 28,
     paddingBottom: 24,
     gap: 14,
   },
