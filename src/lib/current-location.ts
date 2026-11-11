@@ -1,10 +1,18 @@
 import * as Location from "expo-location";
 
+import { matchFrontDeskBuilding } from "@/lib/umich-front-desk-buildings";
+
 function formatPlace(
   place: Location.LocationGeocodedAddress,
   latitude: number,
   longitude: number,
 ): string {
+  const frontDeskBuilding = matchFrontDeskBuilding(place);
+  if (frontDeskBuilding) {
+    return frontDeskBuilding.name;
+  }
+
+
   if (place.formattedAddress) {
     return place.formattedAddress;
   }
