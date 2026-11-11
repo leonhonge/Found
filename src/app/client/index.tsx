@@ -1,9 +1,7 @@
+import { BLUE, MAIZE } from "@/lib/theme";
 import { type Href, Stack, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const MAIZE = "#FFCB05";
-const BLUE = "#00274C";
 
 export default function Index() {
   const router = useRouter();
