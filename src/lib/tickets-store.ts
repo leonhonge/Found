@@ -12,20 +12,21 @@ export type SubmittedClientTicket = {
   id: string;
   category: string;
   description: string;
-  lostAt: string;
+  lostFrom: string;
+  lostUntil: string;
   location: string;
   submittedAt: string;
 };
 
-let tickets: SubmittedAdminTicket[] = [];
+let adminTickets: SubmittedAdminTicket[] = [];
 const listeners = new Set<() => void>();
 
 function notify() {
   listeners.forEach((listener) => listener());
 }
 
-export function getTickets(): SubmittedAdminTicket[] {
-  return tickets;
+export function getAdminTickets(): SubmittedAdminTicket[] {
+  return adminTickets;
 }
 
 let clientTickets: SubmittedClientTicket[] = [];
@@ -36,7 +37,7 @@ function clientNotify() {
 }
 
 export function getClientTickets(): SubmittedClientTicket[] {
-  return tickets;
+  return clientTickets;
 }
 
 export function addAdminTicket(
@@ -47,7 +48,7 @@ export function addAdminTicket(
     id: `${Date.now()}`,
     submittedAt: new Date().toISOString(),
   };
-  tickets = [next, ...tickets];
+  adminTickets = [next, ...adminTickets];
   notify();
   return next;
 }

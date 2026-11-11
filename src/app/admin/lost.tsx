@@ -6,12 +6,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CameraCapture } from "@/components/camera-capture";
 import { lostStyles } from "@/lib/admin-lost-styles";
-import { getCurrentLocationLabel } from "@/lib/current-location";
 import {
   ITEM_CATEGORIES,
   isItemCategory,
   type ItemCategory,
 } from "@/lib/item-categories";
+import { getCurrentLocationLabel } from "@/lib/location";
 import { requestImageDescription } from "@/lib/requestImageDescription";
 import { MAIZE } from "@/lib/theme";
 import { addAdminTicket } from "@/lib/tickets-store";
@@ -179,7 +179,7 @@ export default function LostItemForm() {
         { text: "OK" },
         {
           text: "View tickets",
-          onPress: () => router.push("/tickets" as Href),
+          onPress: () => router.push("/admin/tickets" as Href),
         },
       ],
     );

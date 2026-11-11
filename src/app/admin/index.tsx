@@ -27,7 +27,7 @@ export default function Index() {
             onPress={() => router.push("/admin/tickets" as Href)}
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
           >
-            <Text style={styles.secondaryButtonText}>View tickets</Text>
+            <Text style={styles.secondaryButtonText}>View all tickets</Text>
           </Pressable>
         </View>
       </View>
