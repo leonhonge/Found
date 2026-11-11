@@ -1,18 +1,12 @@
-import DateTimePicker from "@expo/ui/community/datetime-picker";
-import { Image } from "expo-image";
-import { Href, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Href, Stack, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { CameraCapture } from "@/components/camera-capture";
-import { getCurrentLocationLabel } from "@/lib/current-location";
 import {
   ITEM_CATEGORIES,
-  isItemCategory,
-  type ItemCategory,
+  type ItemCategory
 } from "@/lib/item-categories";
-import { requestImageDescription } from "@/lib/requestImageDescription";
-import { addTicket } from "@/lib/tickets-store";
+import { addClientTicket } from "@/lib/tickets-store";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -42,140 +36,159 @@ type Category = ItemCategory;
 type SubmittedReport = {
   category: Category | "";
   description: string;
+  /** The first day in the selected date range. Kept as `lostAt` for compatibility. */
   lostAt: string;
+  /** The last day in the selected date range. */
+  lostUntil: string;
   location: string;
-  photoUri: string | null;
 };
 
-function firstParam(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-  return value;
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function isCategory(value: string | undefined): value is Category {
-  return isItemCategory(value);
+function isSameDay(first: Date, second: Date): boolean {
+  return (
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate()
+  );
 }
 
-function formatDateTime(date: Date): string {
-  return date.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
+function formatDate(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
-function toDatetimeLocalValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+function formatDateRange(start: Date | null, end: Date | null): string {
+  if (!start) return "Select the date range";
+  if (!end || isSameDay(start, end)) return formatDate(start);
+  return `${formatDate(start)} – ${formatDate(end)}`;
 }
 
-function applyDatePart(base: Date, picked: Date): Date {
-  const next = new Date(base);
-  next.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate());
-  return next;
-}
+function getCalendarDays(month: Date): Array<Date | null> {
+  const firstDayOfMonth = new Date(
+    month.getFullYear(),
+    month.getMonth(),
+    1,
+  ).getDay();
+  const daysInMonth = new Date(
+    month.getFullYear(),
+    month.getMonth() + 1,
+    0,
+  ).getDate();
+  const cellCount = Math.ceil((firstDayOfMonth + daysInMonth) / 7) * 7;
 
-function applyTimePart(base: Date, picked: Date): Date {
-  const next = new Date(base);
-  next.setHours(picked.getHours(), picked.getMinutes(), 0, 0);
-  return next;
+  return Array.from({ length: cellCount }, (_, index) => {
+    const dayNumber = index - firstDayOfMonth + 1;
+    if (dayNumber < 1 || dayNumber > daysInMonth) return null;
+    return new Date(month.getFullYear(), month.getMonth(), dayNumber);
+  });
 }
 
 export default function LostItemForm() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{
-    category?: string | string[];
-    description?: string | string[];
-  }>();
 
-  const initialCategory = firstParam(params.category);
-  const initialDescription = firstParam(params.description);
-
-  const [category, setCategory] = useState<Category | "">(
-    isCategory(initialCategory) ? initialCategory : "",
-  );
-  const [description, setDescription] = useState(initialDescription ?? "");
-  const [lostAt, setLostAt] = useState(() => new Date());
+  // Every report field starts empty so the student enters it manually.
+  const [category, setCategory] = useState<Category | "">("");
+  const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
-  const [locationDraft, setLocationDraft] = useState("");
-  const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [lostRangeStart, setLostRangeStart] = useState<Date | null>(null);
+  const [lostRangeEnd, setLostRangeEnd] = useState<Date | null>(null);
 
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [descriptionConfirmOpen, setDescriptionConfirmOpen] = useState(false);
-  const [descriptionEditOpen, setDescriptionEditOpen] = useState(false);
-  const [locationOpen, setLocationOpen] = useState(false);
-  const [webDateOpen, setWebDateOpen] = useState(false);
-  const [webDateDraft, setWebDateDraft] = useState("");
-  const [pickerMode, setPickerMode] = useState<
-    "date" | "time" | "datetime" | null
-  >(null);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [isIdentifying, setIsIdentifying] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(true);
-  const locationTouchedRef = useRef(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarDraftStart, setCalendarDraftStart] = useState<Date | null>(
+    null,
+  );
+  const [calendarDraftEnd, setCalendarDraftEnd] = useState<Date | null>(null);
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
 
-  useEffect(() => {
-    let cancelled = false;
+  const calendarDays = useMemo(
+    () => getCalendarDays(visibleMonth),
+    [visibleMonth],
+  );
 
-    (async () => {
-      try {
-        const label = await getCurrentLocationLabel();
-        if (!cancelled && label && !locationTouchedRef.current) {
-          setLocation(label);
-        }
-      } finally {
-        if (!cancelled) {
-          setLocationLoading(false);
-        }
-      }
-    })();
+  const dateRangeLabel = formatDateRange(lostRangeStart, lostRangeEnd);
+  const today = startOfDay(new Date());
+  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const canGoToNextMonth = visibleMonth < currentMonth;
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const dateLabel = useMemo(() => formatDateTime(lostAt), [lostAt]);
-
-  function openDatePicker() {
-    if (Platform.OS === "web") {
-      setWebDateDraft(toDatetimeLocalValue(lostAt));
-      setWebDateOpen(true);
-      return;
-    }
-    if (Platform.OS === "android") {
-      setPickerMode("date");
-      return;
-    }
-    setPickerMode("datetime");
+  function openCalendar() {
+    const initialDate = lostRangeStart ?? today;
+    setCalendarDraftStart(lostRangeStart);
+    setCalendarDraftEnd(lostRangeEnd);
+    setVisibleMonth(
+      new Date(initialDate.getFullYear(), initialDate.getMonth(), 1),
+    );
+    setCalendarOpen(true);
   }
 
-  function onNativeDateChange(_event: unknown, selectedDate: Date) {
-    if (Platform.OS === "android" && pickerMode === "date") {
-      setLostAt((current) => applyDatePart(current, selectedDate));
-      setPickerMode("time");
+  function selectCalendarDate(date: Date) {
+    const selectedDate = startOfDay(date);
+    if (selectedDate > today) return;
+
+    // First tap chooses the start; the second tap chooses the end.
+    // Tapping again after a complete range starts a new range.
+    if (!calendarDraftStart || calendarDraftEnd) {
+      setCalendarDraftStart(selectedDate);
+      setCalendarDraftEnd(null);
       return;
     }
-    if (Platform.OS === "android" && pickerMode === "time") {
-      setLostAt((current) => applyTimePart(current, selectedDate));
-      setPickerMode(null);
+
+    if (selectedDate < calendarDraftStart) {
+      setCalendarDraftStart(selectedDate);
+      setCalendarDraftEnd(null);
       return;
     }
-    setLostAt(selectedDate);
+
+    setCalendarDraftEnd(selectedDate);
+  }
+
+  function saveCalendarRange() {
+    if (!calendarDraftStart) {
+      Alert.alert("Select a date", "Choose at least one date on the calendar.");
+      return;
+    }
+
+    // A single selected date is treated as a one-day range.
+    const start = startOfDay(calendarDraftStart);
+    const end = startOfDay(calendarDraftEnd ?? calendarDraftStart);
+    setLostRangeStart(start);
+    setLostRangeEnd(end);
+    setCalendarOpen(false);
   }
 
   function submitReport() {
+    const trimmedDescription = description.trim();
+    const trimmedLocation = location.trim();
+
+    if (!category || !trimmedDescription || !trimmedLocation || !lostRangeStart) {
+      Alert.alert(
+        "Missing information",
+        "Please complete the category, description, date range, and location before submitting.",
+      );
+      return;
+    }
+
+    const endDate = lostRangeEnd ?? lostRangeStart;
     const report: SubmittedReport = {
       category,
-      description,
-      lostAt: lostAt.toISOString(),
-      location,
-      photoUri,
+      description: trimmedDescription,
+      // Keep the start date in the existing field and save the range end too.
+      lostAt: startOfDay(lostRangeStart).toISOString(),
+      lostUntil: startOfDay(endDate).toISOString(),
+      location: trimmedLocation,
     };
-    addTicket(report);
+
+    addClientTicket(report);
     Alert.alert(
       "Report submitted",
       "Your ticket was saved. You can view all tickets from the home page.",
@@ -192,14 +205,13 @@ export default function LostItemForm() {
   function resetForm() {
     setCategory("");
     setDescription("");
-    setLostAt(new Date());
     setLocation("");
-    setLocationDraft("");
-    setPhotoUri(null);
-    setDescriptionDraft("");
-    setPickerMode(null);
-    setIsIdentifying(false);
-    locationTouchedRef.current = true; // don't let auto-location refill it
+    setLostRangeStart(null);
+    setLostRangeEnd(null);
+    setCalendarDraftStart(null);
+    setCalendarDraftEnd(null);
+    setCalendarOpen(false);
+    setCategoryOpen(false);
   }
 
   function confirmReset() {
@@ -207,47 +219,11 @@ export default function LostItemForm() {
       resetForm();
       return;
     }
+
     Alert.alert("Reset form?", "This will clear all fields.", [
       { text: "Cancel", style: "cancel" },
       { text: "Reset", style: "destructive", onPress: resetForm },
     ]);
-  }
-
-  async function fillDetailsFromPhoto(imageBase64?: string) {
-    if (!imageBase64) {
-      return;
-    }
-
-    setIsIdentifying(true);
-    try {
-      const details = await requestImageDescription(imageBase64, "image/jpeg");
-      if (details.description) {
-        setDescription(details.description);
-      }
-      if (isCategory(details.category)) {
-        setCategory(details.category);
-      }
-    } catch {
-      Alert.alert(
-        "Could not identify item",
-        "You can still choose a category and write a description.",
-      );
-    } finally {
-      setIsIdentifying(false);
-    }
-  }
-
-  if (isCameraOpen) {
-    return (
-      <CameraCapture
-        onCancel={() => setIsCameraOpen(false)}
-        onCaptured={(uri, imageBase64) => {
-          setPhotoUri(uri);
-          setIsCameraOpen(false);
-          void fillDetailsFromPhoto(imageBase64);
-        }}
-      />
-    );
   }
 
   return (
@@ -255,6 +231,7 @@ export default function LostItemForm() {
       <Stack.Screen
         options={{ headerShown: false, title: "Report Lost Item" }}
       />
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -263,29 +240,6 @@ export default function LostItemForm() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setIsCameraOpen(true)}
-            style={({ pressed }) => [
-              styles.fieldCard,
-              styles.fieldCardStack,
-              pressed && styles.fieldCardPressed,
-            ]}
-          >
-            <Text style={styles.fieldLabel}>Photo</Text>
-            {photoUri ? (
-              <Image
-                source={{ uri: photoUri }}
-                style={styles.photoPreview}
-                contentFit="cover"
-              />
-            ) : (
-              <Text style={styles.fieldPlaceholder}>
-                Take a photo of the item
-              </Text>
-            )}
-          </Pressable>
-
           <Pressable
             accessibilityRole="button"
             onPress={() => setCategoryOpen(true)}
@@ -299,10 +253,7 @@ export default function LostItemForm() {
               <Text
                 style={category ? styles.fieldValue : styles.fieldPlaceholder}
               >
-                {category ||
-                  (isIdentifying
-                    ? "Identifying from photo..."
-                    : "Select a category")}
+                {category || "Select a category"}
               </Text>
             </View>
             <SymbolView
@@ -317,33 +268,24 @@ export default function LostItemForm() {
             />
           </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setDescriptionConfirmOpen(true)}
-            style={({ pressed }) => [
-              styles.fieldCard,
-              styles.fieldCardStack,
-              pressed && styles.fieldCardPressed,
-            ]}
-          >
+          <View style={[styles.fieldCard, styles.fieldCardStack]}>
             <Text style={styles.fieldLabel}>Item description</Text>
-            <Text
-              style={
-                description
-                  ? styles.descriptionPreview
-                  : [styles.descriptionPreview, styles.fieldPlaceholder]
-              }
-            >
-              {description ||
-                (isIdentifying
-                  ? "Identifying from photo..."
-                  : "Any identifying details: color, stickers, name, brand...")}
-            </Text>
-          </Pressable>
+            <TextInput
+              style={[styles.textInput, styles.descriptionInput]}
+              placeholder="Describe the item, including its color, brand, stickers, or other identifying details."
+              placeholderTextColor="#8A96A8"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              textAlignVertical="top"
+              autoCapitalize="sentences"
+            />
+          </View>
 
           <Pressable
             accessibilityRole="button"
-            onPress={openDatePicker}
+            accessibilityLabel="Choose the estimated date range when the item was lost"
+            onPress={openCalendar}
             style={({ pressed }) => [
               styles.fieldCard,
               pressed && styles.fieldCardPressed,
@@ -351,7 +293,16 @@ export default function LostItemForm() {
           >
             <View style={styles.fieldCopy}>
               <Text style={styles.fieldLabel}>Estimated date lost</Text>
-              <Text style={styles.fieldValue}>{dateLabel}</Text>
+              <Text
+                style={
+                  lostRangeStart ? styles.fieldValue : styles.fieldPlaceholder
+                }
+              >
+                {dateRangeLabel}
+              </Text>
+              <Text style={styles.fieldHint}>
+                Choose a start date and an end date.
+              </Text>
             </View>
             <SymbolView
               name={{
@@ -365,62 +316,18 @@ export default function LostItemForm() {
             />
           </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setLocationDraft(location);
-              setLocationOpen(true);
-            }}
-            style={({ pressed }) => [
-              styles.fieldCard,
-              pressed && styles.fieldCardPressed,
-            ]}
-          >
-            <View style={styles.fieldCopy}>
-              <Text style={styles.fieldLabel}>Location lost</Text>
-              <Text
-                style={location ? styles.fieldValue : styles.fieldPlaceholder}
-              >
-                {location ||
-                  (locationLoading
-                    ? "Finding current location..."
-                    : "Add a campus location")}
-              </Text>
-            </View>
-            <SymbolView
-              name={{
-                ios: "mappin.and.ellipse",
-                android: "location_on",
-                web: "location_on",
-              }}
-              tintColor={MAIZE}
-              size={22}
-              fallback={<Text style={styles.chevronFallback}>⌖</Text>}
-            />
-          </Pressable>
-        </ScrollView>
-
-        {Platform.OS !== "web" && pickerMode ? (
-          <View
-            style={Platform.OS === "ios" ? styles.iosPickerWrap : undefined}
-          >
-            {Platform.OS === "ios" ? (
-              <Pressable
-                style={styles.iosPickerDone}
-                onPress={() => setPickerMode(null)}
-              >
-                <Text style={styles.iosPickerDoneText}>Done</Text>
-              </Pressable>
-            ) : null}
-            <DateTimePicker
-              value={lostAt}
-              mode={pickerMode}
-              presentation={Platform.OS === "android" ? "dialog" : undefined}
-              onValueChange={onNativeDateChange}
-              onDismiss={() => setPickerMode(null)}
+          <View style={[styles.fieldCard, styles.fieldCardStack]}>
+            <Text style={styles.fieldLabel}>Location lost</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Enter where you think you lost it (e.g. Mason Hall)."
+              placeholderTextColor="#8A96A8"
+              value={location}
+              onChangeText={setLocation}
+              autoCapitalize="words"
             />
           </View>
-        ) : null}
+        </ScrollView>
 
         <Pressable style={styles.submitBar} onPress={submitReport}>
           <Text style={styles.submitText}>Report Lost Item</Text>
@@ -457,7 +364,12 @@ export default function LostItemForm() {
         </View>
       </KeyboardAvoidingView>
 
-      <Modal visible={categoryOpen} transparent animationType="fade">
+      <Modal
+        visible={categoryOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCategoryOpen(false)}
+      >
         <Pressable
           style={styles.modalBackdrop}
           onPress={() => setCategoryOpen(false)}
@@ -483,131 +395,160 @@ export default function LostItemForm() {
         </Pressable>
       </Modal>
 
-      <Modal visible={descriptionConfirmOpen} transparent animationType="fade">
+      <Modal
+        visible={calendarOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCalendarOpen(false)}
+      >
         <Pressable
           style={styles.modalBackdrop}
-          onPress={() => setDescriptionConfirmOpen(false)}
+          onPress={() => setCalendarOpen(false)}
         >
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Edit description?</Text>
+          <Pressable style={styles.calendarModalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>When was the item lost?</Text>
             <Text style={styles.modalHint}>
-              Do you want to make changes to the item description?
+              Select the first date, then select the last date. For a one-day range,
+              select one date and tap “Use date range.”
             </Text>
-            <View style={styles.modalActions}>
+
+            <View style={styles.calendarMonthHeader}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Previous month"
+                style={styles.calendarNavButton}
+                onPress={() =>
+                  setVisibleMonth(
+                    (month) =>
+                      new Date(month.getFullYear(), month.getMonth() - 1, 1),
+                  )
+                }
+              >
+                <Text style={styles.calendarNavText}>‹</Text>
+              </Pressable>
+              <Text style={styles.calendarMonthTitle}>
+                {visibleMonth.toLocaleDateString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Next month"
+                disabled={!canGoToNextMonth}
+                style={[
+                  styles.calendarNavButton,
+                  !canGoToNextMonth && styles.calendarNavButtonDisabled,
+                ]}
+                onPress={() =>
+                  setVisibleMonth(
+                    (month) =>
+                      new Date(month.getFullYear(), month.getMonth() + 1, 1),
+                  )
+                }
+              >
+                <Text
+                  style={[
+                    styles.calendarNavText,
+                    !canGoToNextMonth && styles.calendarNavTextDisabled,
+                  ]}
+                >
+                  ›
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.calendarWeekdayRow}>
+              {["S", "M", "T", "W", "T", "F", "S"].map(
+                (day, index) => (
+                  <View key={`${day}-${index}`} style={styles.calendarCell}>
+                    <Text style={styles.calendarWeekday}>{day}</Text>
+                  </View>
+                ),
+              )}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day, index) => {
+                if (!day) {
+                  return (
+                    <View
+                      key={`empty-${index}`}
+                      style={styles.calendarCell}
+                    />
+                  );
+                }
+
+                const disabled = startOfDay(day) > today;
+                const isStart =
+                  calendarDraftStart !== null &&
+                  isSameDay(day, calendarDraftStart);
+                const isEnd =
+                  calendarDraftEnd !== null &&
+                  isSameDay(day, calendarDraftEnd);
+                const isInRange =
+                  calendarDraftStart !== null &&
+                  calendarDraftEnd !== null &&
+                  startOfDay(day) >= calendarDraftStart &&
+                  startOfDay(day) <= calendarDraftEnd;
+                const isSelected = isStart || isEnd;
+
+                return (
+                  <View key={day.toISOString()} style={styles.calendarCell}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={formatDate(day)}
+                      accessibilityState={{
+                        disabled,
+                        selected: isSelected,
+                      }}
+                      disabled={disabled}
+                      onPress={() => selectCalendarDate(day)}
+                      style={[
+                        styles.calendarDayButton,
+                        isInRange && styles.calendarDayInRange,
+                        isSelected && styles.calendarDaySelected,
+                        disabled && styles.calendarDayDisabled,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          isSelected && styles.calendarDayTextSelected,
+                          disabled && styles.calendarDayTextDisabled,
+                        ]}
+                      >
+                        {day.getDate()}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={styles.calendarSelectionSummary}>
+              <Text style={styles.calendarSelectionText}>
+                Start: {calendarDraftStart ? formatDate(calendarDraftStart) : "Not selected"}
+              </Text>
+              <Text style={styles.calendarSelectionText}>
+                End: {calendarDraftEnd ? formatDate(calendarDraftEnd) : "Not selected"}
+              </Text>
+            </View>
+
+            <View style={styles.calendarActions}>
               <Pressable
                 style={styles.modalSecondary}
-                onPress={() => setDescriptionConfirmOpen(false)}
+                onPress={() => setCalendarOpen(false)}
               >
-                <Text style={styles.modalSecondaryText}>Keep as is</Text>
+                <Text style={styles.modalSecondaryText}>Cancel</Text>
               </Pressable>
               <Pressable
                 style={styles.modalSave}
-                onPress={() => {
-                  setDescriptionDraft(description);
-                  setDescriptionConfirmOpen(false);
-                  setDescriptionEditOpen(true);
-                }}
+                onPress={saveCalendarRange}
               >
-                <Text style={styles.modalSaveText}>Make changes</Text>
+                <Text style={styles.modalSaveText}>Use date range</Text>
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={descriptionEditOpen} transparent animationType="fade">
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setDescriptionEditOpen(false)}
-        >
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Item description</Text>
-            <Text style={styles.modalHint}>
-              Edit the description, then save.
-            </Text>
-            <TextInput
-              style={[styles.modalInput, styles.descriptionModalInput]}
-              placeholder="Any identifying details: color, stickers, name, brand..."
-              placeholderTextColor="#8A7310"
-              multiline
-              textAlignVertical="top"
-              value={descriptionDraft}
-              onChangeText={setDescriptionDraft}
-              autoFocus
-            />
-            <Pressable
-              style={styles.modalSave}
-              onPress={() => {
-                setDescription(descriptionDraft.trim());
-                setDescriptionEditOpen(false);
-              }}
-            >
-              <Text style={styles.modalSaveText}>Save</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={locationOpen} transparent animationType="fade">
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setLocationOpen(false)}
-        >
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Location Lost</Text>
-            <Text style={styles.modalHint}>
-              This starts as your current location. You can edit it.
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Mason Hall"
-              value={locationDraft}
-              onChangeText={setLocationDraft}
-              autoFocus
-            />
-            <Pressable
-              style={styles.modalSave}
-              onPress={() => {
-                locationTouchedRef.current = true;
-                setLocation(locationDraft.trim());
-                setLocationOpen(false);
-              }}
-            >
-              <Text style={styles.modalSaveText}>Save</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={webDateOpen} transparent animationType="fade">
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setWebDateOpen(false)}
-        >
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Estimated Date Lost</Text>
-            <Text style={styles.modalHint}>Use YYYY-MM-DDTHH:MM</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={webDateDraft}
-              onChangeText={setWebDateDraft}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Pressable
-              style={styles.modalSave}
-              onPress={() => {
-                const next = new Date(webDateDraft);
-                if (Number.isNaN(next.getTime())) {
-                  Alert.alert("Invalid date", "Please use YYYY-MM-DDTHH:MM.");
-                  return;
-                }
-                setLostAt(next);
-                setWebDateOpen(false);
-              }}
-            >
-              <Text style={styles.modalSaveText}>Save</Text>
-            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -682,29 +623,28 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#8A96A8",
   },
+  fieldHint: {
+    fontSize: 12,
+    color: "#68788D",
+    marginTop: 2,
+  },
   chevronFallback: {
     color: MAIZE,
     fontSize: 22,
     fontWeight: "700",
   },
-  photoPreview: {
-    marginTop: 10,
+  textInput: {
     width: "100%",
-    height: 220,
+    borderWidth: 1,
+    borderColor: "#D7DEE8",
+    backgroundColor: "#F4F7FB",
     borderRadius: 14,
-    backgroundColor: MAIZE_SOFT,
-  },
-  descriptionPreview: {
-    marginTop: 10,
-    backgroundColor: MAIZE_SOFT,
-    borderRadius: 14,
-    minHeight: 112,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
     color: BLUE,
   },
-  descriptionModalInput: {
+  descriptionInput: {
     minHeight: 112,
   },
   submitBar: {
@@ -766,6 +706,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 4,
     borderTopColor: MAIZE,
   },
+  calendarModalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 18,
+    gap: 12,
+    borderTopWidth: 4,
+    borderTopColor: MAIZE,
+    width: "100%",
+    maxWidth: 440,
+    alignSelf: "center",
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -777,6 +728,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: BLUE_MID,
     textAlign: "center",
+    lineHeight: 19,
   },
   optionRow: {
     paddingVertical: 14,
@@ -793,24 +745,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: BLUE,
   },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: "#D7DEE8",
-    backgroundColor: "#F4F7FB",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: BLUE,
-  },
-  modalActions: {
-    gap: 10,
-  },
   modalSecondary: {
     backgroundColor: "#F4F7FB",
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
+    flex: 1,
   },
   modalSecondaryText: {
     color: BLUE,
@@ -822,25 +762,100 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
+    flex: 1,
   },
   modalSaveText: {
     color: MAIZE,
     fontWeight: "700",
     fontSize: 16,
   },
-  iosPickerWrap: {
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#ddd",
+  calendarMonthHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  iosPickerDone: {
-    alignItems: "flex-end",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  calendarNavButton: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 19,
+    backgroundColor: "#F4F7FB",
   },
-  iosPickerDoneText: {
-    fontSize: 16,
-    fontWeight: "700",
+  calendarNavButtonDisabled: {
+    opacity: 0.35,
+  },
+  calendarNavText: {
     color: BLUE,
+    fontSize: 28,
+    lineHeight: 30,
+  },
+  calendarNavTextDisabled: {
+    color: "#8A96A8",
+  },
+  calendarMonthTitle: {
+    color: BLUE,
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  calendarWeekdayRow: {
+    flexDirection: "row",
+  },
+  calendarWeekday: {
+    color: BLUE_MID,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  calendarCell: {
+    width: "14.2857%",
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarDayButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarDayInRange: {
+    backgroundColor: MAIZE_SOFT,
+  },
+  calendarDaySelected: {
+    backgroundColor: BLUE,
+  },
+  calendarDayDisabled: {
+    opacity: 0.35,
+  },
+  calendarDayText: {
+    color: BLUE,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  calendarDayTextSelected: {
+    color: MAIZE,
+  },
+  calendarDayTextDisabled: {
+    color: "#8A96A8",
+  },
+  calendarSelectionSummary: {
+    backgroundColor: MAIZE_SOFT,
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  calendarSelectionText: {
+    color: BLUE,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  calendarActions: {
+    flexDirection: "row",
+    gap: 10,
   },
 });

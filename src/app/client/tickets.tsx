@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getTickets, subscribeTickets, type SubmittedTicket } from "@/lib/tickets-store";
+import { getTickets, subscribeTickets, type SubmittedAdminTicket } from "@/lib/tickets-store";
 
 const MAIZE = "#FFCB05";
 const MAIZE_SOFT = "#FFF6CC";
@@ -19,7 +19,7 @@ function formatDateTime(date: Date): string {
   });
 }
 
-function TicketCard({ ticket }: { ticket: SubmittedTicket }) {
+function TicketCard({ ticket }: { ticket: SubmittedAdminTicket }) {
   return (
     <View style={styles.previewCard}>
       {ticket.photoUri ? (
@@ -42,7 +42,7 @@ function TicketCard({ ticket }: { ticket: SubmittedTicket }) {
 export default function TicketsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [tickets, setTickets] = useState<SubmittedTicket[]>(() => getTickets());
+  const [tickets, setTickets] = useState<SubmittedAdminTicket[]>(() => getTickets());
 
   useEffect(() => {
     return subscribeTickets(() => {
