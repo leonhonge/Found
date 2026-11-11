@@ -303,4 +303,17 @@ export const lostStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
+  mapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: MAIZE,
+  },
+  mapButtonSet: { backgroundColor: MAIZE },
+  mapButtonText: { color: MAIZE, fontWeight: "600", flexShrink: 1 },
 });

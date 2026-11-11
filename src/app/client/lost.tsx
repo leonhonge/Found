@@ -24,6 +24,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import { clearMarker, useMarker } from "@/lib/marker-storage";
 import { MAIZE } from "@/lib/theme";
 
 const CATEGORIES = ITEM_CATEGORIES;
@@ -38,6 +39,7 @@ type SubmittedReport = {
   /** The last day in the selected date range. */
   lostUntil: string;
   location: string;
+  nearbyBuildings?: string[]
 };
 
 function startOfDay(date: Date): Date {
@@ -93,9 +95,15 @@ export default function LostItemForm() {
   // Every report field starts empty so the student enters it manually.
   const [category, setCategory] = useState<Category | "">("");
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
   const [lostRangeStart, setLostRangeStart] = useState<Date | null>(null);
   const [lostRangeEnd, setLostRangeEnd] = useState<Date | null>(null);
+
+  const marker = useMarker();
+  const nearbyBuildings = marker?.nearbyBuildings ?? [];
+  
+  const currentMarkerId = marker?.savedAt ?? null;
+  const location = marker?.label ?? "";
+
 
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -193,7 +201,7 @@ export default function LostItemForm() {
         { text: "OK" },
         {
           text: "View tickets",
-          onPress: () => router.push("/tickets" as Href),
+          onPress: () => router.push("/client/tickets" as Href),
         },
       ],
     );
@@ -202,13 +210,13 @@ export default function LostItemForm() {
   function resetForm() {
     setCategory("");
     setDescription("");
-    setLocation("");
     setLostRangeStart(null);
     setLostRangeEnd(null);
     setCalendarDraftStart(null);
     setCalendarDraftEnd(null);
     setCalendarOpen(false);
     setCategoryOpen(false);
+    clearMarker();
   }
 
   function confirmReset() {
@@ -313,17 +321,33 @@ export default function LostItemForm() {
             />
           </Pressable>
 
-          <View style={[styles.fieldCard, styles.fieldCardStack]}>
-            <Text style={styles.fieldLabel}>Location lost</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Press to enter where you think you lost it."
-              placeholderTextColor="#8A96A8"
-              value={location}
-              onChangeText={setLocation}
-              autoCapitalize="words"
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose the location where the item was lost on a map"
+            onPress={() => router.push("/client/map" as Href)}
+            style={({ pressed }) => [
+              styles.fieldCard,
+              pressed && styles.fieldCardPressed,
+            ]}
+          >
+            <View style={styles.fieldCopy}>
+              <Text style={styles.fieldLabel}>Location lost</Text>
+              <Text style={location ? styles.fieldValue : styles.fieldPlaceholder}>
+                {location || "Find location on map"}
+              </Text>
+              {nearbyBuildings.length > 0 && (
+                <Text style={styles.fieldHint}>
+                  Nearby: {nearbyBuildings.map((b) => b.name).join(", ")}
+                </Text>
+              )}
+            </View>
+            <SymbolView
+              name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }}
+              tintColor={MAIZE}
+              size={22}
+              fallback={<Text style={styles.chevronFallback}>📍</Text>}
             />
-          </View>
+          </Pressable>
         </ScrollView>
 
         <Pressable style={styles.submitBar} onPress={submitReport}>

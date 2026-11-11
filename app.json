@@ -3,6 +3,10 @@
     "name": "michiganfound",
     "slug": "michiganfound",
     "version": "1.0.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "michiganfound",

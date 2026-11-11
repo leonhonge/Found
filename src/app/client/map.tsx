@@ -1,74 +1,108 @@
-// import { locationStyles } from "@/lib/location-styles";
-// import { type Href, useRouter } from "expo-router";
-// import { useState } from "react";
-// import { Pressable, Text, View } from "react-native";
-// import MapView, { type MapPressEvent, Marker } from "react-native-maps";
+import { Stack, useRouter } from "expo-router";
+import { useState } from "react";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import MapView, { Marker, type MapPressEvent } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// import { clearMarker, type SavedMarker, saveMarker } from "@/lib/marker-storage";
+import type { Coordinates } from "@/lib/location";
+import {
+  findBuildingsWithinRadius,
+  getLabelForCoordinates,
+  SEARCH_RADIUS_METERS,
+} from "@/lib/location";
+import { locationStyles } from "@/lib/location-styles";
+import { clearMarker, getMarker, saveMarker } from "@/lib/marker-storage";
+import { MAIZE } from "@/lib/theme";
 
-// const U_OF_M = { latitude: 42.278, longitude: -83.7382 }; // Central Campus
+const DEFAULT_REGION = {
+  latitude: 42.278,
+  longitude: -83.7382,
+  latitudeDelta: 0.02,
+  longitudeDelta: 0.02,
+};
 
-// export default function MarkerMap() {
-//   const router = useRouter();
-//   const [marker, setMarker] = useState<SavedMarker | null>(null);
+export default function MapScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-//   const handleMapPress = async (e: MapPressEvent) => {
-//     const { latitude, longitude } = e.nativeEvent.coordinate;
-//     const next = { latitude, longitude };
-//     setMarker(next);
-//     try {
-//       await saveMarker(next);
-//     } catch (error) {
-//       console.warn("Could not save marker", error);
-//     }
-//   };
+  // Lazy initializers: start from the saved pin if there is one.
+  const [initialRegion] = useState(() => {
+    const saved = getMarker();
+    return saved
+      ? { ...DEFAULT_REGION, latitude: saved.latitude, longitude: saved.longitude }
+      : DEFAULT_REGION;
+  });
+  const [draft, setDraft] = useState<Coordinates | null>(() => {
+    const saved = getMarker();
+    return saved ? { latitude: saved.latitude, longitude: saved.longitude } : null;
+  });
+  const [saving, setSaving] = useState(false);
 
-//   const handleClear = async () => {
-//     setMarker(null);
-//     try {
-//       await clearMarker();
-//     } catch (error) {
-//       console.warn("Could not clear marker", error);
-//     }
-//   };
+  function onMapPress(e: MapPressEvent) {
+    setDraft(e.nativeEvent.coordinate);
+  }
 
-//   return (
-//     <View style={styles.container}>
-//       <MapView
-//         style={styles.map}
-//         initialRegion={{
-//           ...(marker ?? U_OF_M),
-//           latitudeDelta: 0.01,
-//           longitudeDelta: 0.01,
-//         }}
-//         onPress={handleMapPress}
-//       >
-//         {marker && <Marker coordinate={marker} pinColor="#FFCB05" />}
-//       </MapView>
+  async function onSave() {
+    if (!draft) {
+      Alert.alert("No pin dropped", "Tap the map to place a pin first.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const [label, nearbyBuildings] = await Promise.all([
+        getLabelForCoordinates(draft.latitude, draft.longitude),
+        findBuildingsWithinRadius(draft, SEARCH_RADIUS_METERS),
+      ]);
+      await saveMarker({ ...draft, label, nearbyBuildings, savedAt: Date.now() });
+      router.back();
+    } finally {
+      setSaving(false);
+    }
+  }
 
-//       <View style={styles.panel}>
-//         <Text style={styles.panelText}>
-//           {marker ? "Location saved" : "Tap the map to set a location"}
-//         </Text>
-//         <View style={styles.buttons}>
-//           {marker && (
-//             <Pressable accessibilityRole="button" onPress={handleClear} style={styles.clearButton}>
-//               <Text style={styles.clearText}>Clear</Text>
-//             </Pressable>
-//           )}
-//           <Pressable
-//             accessibilityRole="button"
-//             disabled={!marker}
-//             // Change "/search" to your next page's route
-//             onPress={() => router.push("/search" as Href)}
-//             style={[styles.continueButton, !marker && styles.continueDisabled]}
-//           >
-//             <Text style={styles.continueText}>Continue</Text>
-//           </Pressable>
-//         </View>
-//       </View>
-//     </View>
-//   );
-// }
+  async function onClear() {
+    setDraft(null);
+    await clearMarker();
+  }
 
-// const styles = locationStyles;
+  return (
+    <View style={styles.flex}>
+      <Stack.Screen options={{ title: "Pin where you lost it" }} />
+
+      <MapView style={styles.flex} initialRegion={initialRegion} onPress={onMapPress}>
+        {draft && (
+          <>
+            <Marker
+              coordinate={draft}
+              draggable
+              onDragEnd={(e) => setDraft(e.nativeEvent.coordinate)}
+              pinColor={MAIZE}
+            />
+          </>
+        )}
+      </MapView>
+
+      <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <Text style={styles.hint}>
+          {draft
+            ? `${draft.latitude.toFixed(5)}, ${draft.longitude.toFixed(5)}`
+            : "Tap the map to drop a pin. Drag it to adjust."}
+        </Text>
+        <View style={styles.row}>
+          <Pressable style={[styles.btn, styles.secondary]} onPress={onClear} disabled={saving}>
+            <Text style={styles.secondaryText}>Clear</Text>
+          </Pressable>
+          <Pressable style={[styles.btn, styles.primary]} onPress={onSave} disabled={saving}>
+            {saving ? (
+              <ActivityIndicator color="#00274C" />
+            ) : (
+              <Text style={styles.primaryText}>Save location</Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = locationStyles;
